@@ -12,14 +12,15 @@ import streamlit as st
 from verificacoes import classificar_prototipo, CATEGORIAS
 from bcf_export import gerar_bcfzip
 
-ICONE_STATUS = {
-    "Conforme": "✅ Conforme",
-    "Não Conforme": "❌ Não Conforme",
-    "Parcial": "▲ Parcial",
-    "Indeterminado": "⚠️ Indeterminado",
-    "N/A": "— N/A",
-}
-ICONE_CONF = {"ALTA": "🟢 Alta", "MEDIA": "🟡 Média", "BAIXA": "🔴 Baixa"}
+from ui_style import (CORES_STATUS, CORES_CONFIANCA, SIMBOLO_STATUS,
+                      SIMBOLO_CONFIANCA, FONTE_UI)
+
+# Status: símbolo + rótulo (sem emoji colorido — a forma já diferencia)
+ICONE_STATUS = {s: f"{SIMBOLO_STATUS[s]} {s}" for s in SIMBOLO_STATUS}
+# Confiança: "barras de sinal" (não usa verde/vermelho, que são cores de status)
+ICONE_CONF = {"ALTA": f"{SIMBOLO_CONFIANCA['ALTA']} Alta",
+              "MEDIA": f"{SIMBOLO_CONFIANCA['MEDIA']} Média",
+              "BAIXA": f"{SIMBOLO_CONFIANCA['BAIXA']} Baixa"}
 
 
 def _card(valor, rotulo, cor=""):
@@ -58,12 +59,12 @@ def render_aba_elementos(linhas: list[dict] | None, comparacao: dict | None) -> 
         '<div class="info-box"><strong>Como ler esta aba:</strong> cada linha é um '
         '<em>elemento</em> verificado contra um <em>item</em> da NBR 9050, com a conta '
         'feita em Python (determinística). A <strong>confiança</strong> vem da origem do '
-        'dado: 🟢 propriedade explícita do modelo · 🟡 geometria ou proxy (ex: cota Z) · '
-        '🔴 inferência pelo nome do elemento.</div>', unsafe_allow_html=True)
+        'dado: ▮▮▮ <strong>alta</strong>, propriedade explícita do modelo · ▮▮▯ <strong>média</strong>, geometria ou proxy (ex: cota Z) · '
+        '▮▯▯ <strong>baixa</strong>, inferência pelo nome do elemento.</div>', unsafe_allow_html=True)
 
     # ── Comparação LLM × Python ───────────────────────────────────────────────
     if comparacao and comparacao.get("tabela"):
-        st.markdown('<div class="section-title">🤝 Status do item: LLM × Python</div>',
+        st.markdown('<div class="section-title">Status do item: LLM × Python</div>',
                     unsafe_allow_html=True)
         dc = pd.DataFrame(comparacao["tabela"])
         dc["status_llm"] = dc["status_llm"].map(lambda s: ICONE_STATUS.get(s, s))
@@ -81,7 +82,7 @@ def render_aba_elementos(linhas: list[dict] | None, comparacao: dict | None) -> 
                    "ou o LLM errou, ou a regra em Python precisa de ajuste.")
 
     # ── Filtros ───────────────────────────────────────────────────────────────
-    st.markdown('<div class="section-title">🔎 Verificação por elemento</div>',
+    st.markdown('<div class="section-title">Verificação por elemento</div>',
                 unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns([1, 1, 1, 1.2])
     f_status = c1.multiselect("Status", sorted(df.status.unique()), key="fe_status")
@@ -124,13 +125,10 @@ def render_aba_elementos(linhas: list[dict] | None, comparacao: dict | None) -> 
 # Gráficos em Altair — biblioteca que JÁ vem instalada junto com o Streamlit,
 # então não é preciso mexer no requirements.txt.
 
-CORES_STATUS = {
-    "Conforme": "#1ab87a", "Parcial": "#7c3ac4", "Não Conforme": "#e03c3c",
-    "Indeterminado": "#e8920a", "N/A": "#9ca3af",
-}
-CORES_CONF = {"ALTA": "#1ab87a", "MEDIA": "#f2c94c", "BAIXA": "#e03c3c"}
+# Cores vêm do ui_style.py (fonte única da identidade visual)
+CORES_CONF = CORES_CONFIANCA
 ROTULO_CONF = {"ALTA": "Alta", "MEDIA": "Média", "BAIXA": "Baixa"}
-FONTE = "Trebuchet MS"
+FONTE = FONTE_UI
 
 
 def _escala(mapa, dominio=None):
@@ -166,11 +164,11 @@ def _grafico_status_por_item(df):
 def _cor_celula(pct):
     """Interpola do verde-claro (0% falhas) ao vermelho (100% falhas)."""
     if pct is None:
-        return "background-color:#f4f6f9;color:#9ca3af"
-    a, b = (230, 250, 243), (224, 60, 60)
+        return "background-color:#F1F5F9;color:#64748B"
+    a, b = (236, 253, 245), (185, 28, 28)   # verde muito claro -> vermelho 700
     t = pct / 100
     r, g, bl = (round(a[i] + (b[i] - a[i]) * t) for i in range(3))
-    txt = "#ffffff" if pct > 50 else "#1a1d26"
+    txt = "#ffffff" if pct >= 70 else "#0B1F3B"   # troca só quando o contraste permite
     return f"background-color:rgb({r},{g},{bl});color:{txt};font-weight:700;text-align:center"
 
 
@@ -252,15 +250,15 @@ def render_dashboard(linhas: list[dict] | None, resultado: dict | None,
     # ── Gráficos ──────────────────────────────────────────────────────────────
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown('<div class="section-title">📊 Status por item da NBR</div>',
+        st.markdown('<div class="section-title">Status por item da NBR</div>',
                     unsafe_allow_html=True)
         st.altair_chart(_grafico_status_por_item(df), use_container_width=True, theme=None)
     with col2:
-        st.markdown('<div class="section-title">🎯 Confiança dos dados por item</div>',
+        st.markdown('<div class="section-title">Confiança dos dados por item</div>',
                     unsafe_allow_html=True)
         st.altair_chart(_grafico_confianca(df), use_container_width=True, theme=None)
 
-    st.markdown('<div class="section-title">🗺️ Onde estão os problemas: pavimento × item</div>',
+    st.markdown('<div class="section-title">Onde estão os problemas: pavimento × item</div>',
                 unsafe_allow_html=True)
     hm = _heatmap_pavimento_item(df)
     if hm is not None:
@@ -272,7 +270,7 @@ def render_dashboard(linhas: list[dict] | None, resultado: dict | None,
 
     # ── Lista de ação: não conformidades ─────────────────────────────────────
     nc = df[df.status == "Não Conforme"].sort_values(["item_nbr", "pavimento"])
-    st.markdown(f'<div class="section-title">🛠️ Lista de ação — {len(nc)} não conformidades</div>',
+    st.markdown(f'<div class="section-title">Lista de ação — {len(nc)} não conformidades</div>',
                 unsafe_allow_html=True)
     if nc.empty:
         st.caption("Nenhuma não conformidade por elemento. 🎉")
