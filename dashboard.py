@@ -13,14 +13,15 @@ from verificacoes import classificar_prototipo, CATEGORIAS
 from bcf_export import gerar_bcfzip
 
 from ui_style import (CORES_STATUS, CORES_CONFIANCA, SIMBOLO_STATUS,
-                      SIMBOLO_CONFIANCA, FONTE_UI)
+                      SIMBOLO_CONFIANCA, FONTE_UI, PALETA)
+from ui_componentes import (kpi, linha_kpis, mini_barra, barra_segmentada, segmentos_status,
+                            segmentos_origem, legenda_origem_html, rotulo_origem, fmt_pct,
+                            ORIGEM_DADO, ORDEM_STATUS)
 
 # Status: símbolo + rótulo (sem emoji colorido — a forma já diferencia)
 ICONE_STATUS = {s: f"{SIMBOLO_STATUS[s]} {s}" for s in SIMBOLO_STATUS}
 # Confiança: "barras de sinal" (não usa verde/vermelho, que são cores de status)
-ICONE_CONF = {"ALTA": f"{SIMBOLO_CONFIANCA['ALTA']} Alta",
-              "MEDIA": f"{SIMBOLO_CONFIANCA['MEDIA']} Média",
-              "BAIXA": f"{SIMBOLO_CONFIANCA['BAIXA']} Baixa"}
+ICONE_CONF = {n: rotulo_origem(n) for n in ("ALTA", "MEDIA", "BAIXA")}
 
 
 def _card(valor, rotulo, cor=""):
@@ -32,54 +33,72 @@ def render_aba_elementos(linhas: list[dict] | None, comparacao: dict | None) -> 
     if not linhas:
         st.markdown(
             '<div class="info-box">Nenhuma verificação por elemento disponível. '
-            'Execute a auditoria na aba <strong>Arquivos &amp; Execução</strong>.</div>',
+            'Execute a auditoria na aba <strong>Nova auditoria</strong>.</div>',
             unsafe_allow_html=True)
         return
 
     df = pd.DataFrame(linhas)
 
+    # ── Abertura: a lógica da aba em uma frase ────────────────────────────────
+    st.markdown(
+        '<div class="passo-a-passo">Cada item da norma é checado de <strong>duas formas '
+        'independentes</strong>: um <strong>cálculo</strong> com as medidas do modelo e uma '
+        '<strong>leitura pela IA</strong>. Quando as duas discordam, <strong>vale o cálculo</strong> — '
+        'e a divergência aparece aqui para você conferir.</div>', unsafe_allow_html=True)
+
     # ── KPIs ──────────────────────────────────────────────────────────────────
     n = len(df)
-    conf = (df.status == "Conforme").sum()
-    nconf = (df.status == "Não Conforme").sum()
-    indet = (df.status == "Indeterminado").sum()
-    alta = (df.confianca == "ALTA").sum()
+    conf = int((df.status == "Conforme").sum())
+    nconf = int((df.status == "Não Conforme").sum())
+    indet = int((df.status == "Indeterminado").sum())
+    alta = int((df.confianca == "ALTA").sum())
+    cont_origem = df.confianca.value_counts().to_dict()
+    ok = comparacao.get("concordantes") if comparacao else None
+    comp = comparacao.get("comparaveis") if comparacao else None
     taxa = comparacao.get("taxa_concordancia") if comparacao else None
-    cards = [
-        _card(n, "Verificações (elemento × item)", "c-blue"),
-        _card(conf, "Conformes", "c-green"),
-        _card(nconf, "Não conformes", "c-red"),
-        _card(indet, "Indeterminados", "c-amber"),
-        _card(f"{alta}/{n}", "Confiança alta", "c-muted"),
-        _card(f"{taxa}%" if taxa is not None else "—", "Concordância LLM × Python", "c-purple"),
-    ]
-    st.markdown(f'<div class="metric-row">{"".join(cards)}</div>', unsafe_allow_html=True)
+    st.markdown(linha_kpis([
+        kpi(n, "Verificações feitas", f"{df.global_id.nunique()} elementos × itens da norma"),
+        kpi(conf, "Conformes", "verificações que atendem à norma", "c-green"),
+        kpi(nconf, "Não conformes", "verificações que não atendem", "c-red"),
+        kpi(indet, "Indeterminadas", "faltou informação no modelo", "c-amber"),
+        kpi(f"{alta}<span class='tec' style='font-size:1rem'>/{n}</span>", "Medidas lidas direto do modelo",
+            "as demais foram calculadas ou estimadas — ver legenda",
+            extra_html=mini_barra([(cont_origem.get(k, 0), CORES_CONFIANCA[k]) for k in ("ALTA", "MEDIA", "BAIXA")])),
+        kpi(f"{ok}<span class='tec' style='font-size:1rem'>/{comp}</span>" if comp else "—",
+            "IA e cálculo concordaram",
+            f"itens com o mesmo resultado ({fmt_pct(taxa)}) <span class='tec'>· concordância LLM × Python</span>"
+            if comp else "sem itens comparáveis", "c-purple"),
+    ]), unsafe_allow_html=True)
 
-    st.markdown(
-        '<div class="info-box"><strong>Como ler esta aba:</strong> cada linha é um '
-        '<em>elemento</em> verificado contra um <em>item</em> da NBR 9050, com a conta '
-        'feita em Python (determinística). A <strong>confiança</strong> vem da origem do '
-        'dado: ▮▮▮ <strong>alta</strong>, propriedade explícita do modelo · ▮▮▯ <strong>média</strong>, geometria ou proxy (ex: cota Z) · '
-        '▮▯▯ <strong>baixa</strong>, inferência pelo nome do elemento.</div>', unsafe_allow_html=True)
+    st.markdown(legenda_origem_html(), unsafe_allow_html=True)
 
-    # ── Comparação LLM × Python ───────────────────────────────────────────────
+    # ── Comparação IA × cálculo ───────────────────────────────────────────────
     if comparacao and comparacao.get("tabela"):
-        st.markdown('<div class="section-title">Status do item: LLM × Python</div>',
+        st.markdown('<div class="section-title">Parecer da IA × resultado do cálculo '
+                    '<span class="section-sub">por item da norma</span></div>',
                     unsafe_allow_html=True)
         dc = pd.DataFrame(comparacao["tabela"])
         dc["status_llm"] = dc["status_llm"].map(lambda s: ICONE_STATUS.get(s, s))
         dc["status_python"] = dc["status_python"].map(lambda s: ICONE_STATUS.get(s, s))
-        dc["concorda"] = dc["concorda"].map({True: "✔️", False: "✖️ divergente", None: "—"})
+        dc["concorda"] = dc["concorda"].map({True: "✓ Sim", False: "✕ Não — vale o cálculo", None: "—"})
+        dc["tipo"] = dc["tipo"].map({"Numérico": "Medição", "Qualitativo (texto)": "Leitura de texto"}).fillna(dc["tipo"])
         st.dataframe(
-            dc, hide_index=True, use_container_width=True,
+            dc[["item_nbr", "categoria", "status_python", "status_llm", "concorda", "tipo"]],
+            hide_index=True, use_container_width=True,
             column_config={
-                "item_nbr": "Item NBR", "categoria": "Categoria",
-                "status_llm": "Status LLM", "status_python": "Status Python",
-                "concorda": "Concorda?", "tipo": "Tipo de verificação",
+                "item_nbr": "Item NBR", "categoria": "O que foi checado",
+                "status_python": st.column_config.TextColumn(
+                    "Resultado do cálculo", help="Medição feita em Python a partir da geometria e dos dados do IFC. É o resultado que vale."),
+                "status_llm": st.column_config.TextColumn(
+                    "Parecer da IA", help="Resposta do modelo de linguagem (LLM) lendo os mesmos dados."),
+                "concorda": st.column_config.TextColumn(
+                    "IA e cálculo concordam?", help="Quando discordam, prevalece o cálculo."),
+                "tipo": st.column_config.TextColumn(
+                    "Como foi checado", help="Medição = valores numéricos; Leitura de texto = deduzido do nome do elemento."),
             })
-        st.caption(f"{comparacao['concordantes']} de {comparacao['comparaveis']} itens "
-                   "comparáveis com o mesmo status. Divergências merecem inspeção: "
-                   "ou o LLM errou, ou a regra em Python precisa de ajuste.")
+        st.caption(f"A IA e o cálculo chegaram ao mesmo resultado em {ok} de {comp} itens. "
+                   "Uma divergência não é necessariamente um erro do projeto: indica que vale "
+                   "olhar o item com atenção (a IA pode ter se enganado, ou a regra de cálculo precisa de ajuste).")
 
     # ── Filtros ───────────────────────────────────────────────────────────────
     st.markdown('<div class="section-title">Verificação por elemento</div>',
@@ -87,7 +106,8 @@ def render_aba_elementos(linhas: list[dict] | None, comparacao: dict | None) -> 
     c1, c2, c3, c4 = st.columns([1, 1, 1, 1.2])
     f_status = c1.multiselect("Status", sorted(df.status.unique()), key="fe_status")
     f_item = c2.multiselect("Item NBR", sorted(df.item_nbr.unique()), key="fe_item")
-    f_conf = c3.multiselect("Confiança", ["ALTA", "MEDIA", "BAIXA"], key="fe_conf")
+    f_conf = c3.multiselect("Origem do dado", ["ALTA", "MEDIA", "BAIXA"], key="fe_conf",
+                            format_func=lambda k: ORIGEM_DADO[k]["rotulo"])
     f_gid = c4.text_input("Buscar GlobalId", key="fe_gid")
 
     dv = df.copy()
@@ -106,14 +126,14 @@ def render_aba_elementos(linhas: list[dict] | None, comparacao: dict | None) -> 
         dv_show, hide_index=True, use_container_width=True, height=420,
         column_config={
             "item_nbr": "Item", "categoria": "Categoria", "status": "Status",
-            "confianca": "Confiança", "nome": "Elemento", "global_id": "GlobalId",
+            "confianca": "Origem do dado", "nome": "Elemento", "global_id": "GlobalId",
             "pavimento": "Pavimento", "valor_medido": "Medido", "valor_exigido": "Exigido",
-            "mensagem": "Observação", "ifc_class": "Classe IFC", "fonte_dado": "Origem do dado",
+            "mensagem": "Observação", "ifc_class": "Classe IFC", "fonte_dado": "Fonte técnica",
         })
     st.caption(f"Exibindo {len(dv)} de {n} verificações.")
 
     st.download_button(
-        "⬇️ Baixar tabela por elemento (CSV)",
+        "Baixar tabela por elemento (CSV)",
         data=df.to_csv(index=False, sep=";").encode("utf-8-sig"),
         file_name="verificacao_por_elemento.csv", mime="text/csv",
     )
@@ -148,12 +168,12 @@ def _grafico_status_por_item(df):
     d = df.groupby(["item_label", "status"]).size().reset_index(name="qtd")
     ordem = sorted(df.item_label.unique())
     dom = [s for s in CORES_STATUS if s in set(d.status)]
-    ch = alt.Chart(d).mark_bar().encode(
+    ch = alt.Chart(d).mark_bar(cornerRadiusEnd=4, height={"band": 0.65}).encode(
         y=alt.Y("item_label:N", title=None, sort=ordem,
-                axis=alt.Axis(labelLimit=260, labelOverlap=False)),
-        x=alt.X("qtd:Q", title="Nº de elementos verificados",
+                axis=alt.Axis(labelLimit=260, labelOverlap=False, domain=False, ticks=False)),
+        x=alt.X("qtd:Q", title="Nº de elementos conferidos",
                 axis=alt.Axis(tickMinStep=1, format="d")),
-        color=alt.Color("status:N", title="Status", scale=_escala(CORES_STATUS, dom)),
+        color=alt.Color("status:N", title="Resultado", scale=_escala(CORES_STATUS, dom)),
         tooltip=[alt.Tooltip("item_label:N", title="Item"),
                  alt.Tooltip("status:N", title="Status"),
                  alt.Tooltip("qtd:Q", title="Elementos")],
@@ -217,8 +237,8 @@ def render_dashboard(linhas: list[dict] | None, resultado: dict | None,
                      malhas: dict | None = None, arquivo_ifc: str = "modelo.ifc") -> None:
     if not linhas:
         st.markdown(
-            '<div class="info-box">Execute a auditoria na aba <strong>Arquivos &amp; '
-            'Execução</strong> para ver o dashboard.</div>', unsafe_allow_html=True)
+            '<div class="info-box">Execute a auditoria na aba <strong>Nova auditoria</strong> '
+            'para ver o dashboard.</div>', unsafe_allow_html=True)
         return
 
     df = pd.DataFrame(linhas)
@@ -231,59 +251,99 @@ def render_dashboard(linhas: list[dict] | None, resultado: dict | None,
         if sel:
             df = df[df.pavimento.isin(sel)]
 
-    # ── KPIs ──────────────────────────────────────────────────────────────────
+    # ── KPIs (rótulo · número · contexto · mini barra) ────────────────────────
     aval = df[df.status.isin(["Conforme", "Não Conforme"])]
-    pct = round((aval.status == "Conforme").mean() * 100, 1) if len(aval) else None
+    n_ok = int((aval.status == "Conforme").sum())
+    pct = n_ok / len(aval) * 100 if len(aval) else None
+    nc_df = df[df.status == "Não Conforme"]
     proto = classificar_prototipo((resultado or {}).get("resultados", []))
-    cor_proto = {"Completo": "c-green", "Parcial": "c-amber", "Incompleto": "c-red"}[proto["classe"]]
-    alta_pct = round((df.confianca == "ALTA").mean() * 100) if len(df) else 0
-    cards = [
-        _card(f"{pct}%" if pct is not None else "—", "Conformidade por elemento", "c-green"),
-        _card((df.status == "Não Conforme").sum(), "Elementos não conformes", "c-red"),
-        _card(df.global_id.nunique(), "Elementos distintos auditados", "c-blue"),
-        _card(f"{alta_pct}%", "Verificações c/ confiança alta", "c-muted"),
-        _card(proto["classe"], f"Protótipo · {proto['avaliados']}/{proto['aplicaveis']} itens avaliados",
-              cor_proto),
-    ]
-    st.markdown(f'<div class="metric-row">{"".join(cards)}</div>', unsafe_allow_html=True)
+    cont_origem = df.confianca.value_counts().to_dict()
+    alta_pct = (df.confianca == "ALTA").mean() * 100 if len(df) else 0
+    cont_status = df.status.value_counts().to_dict()
 
-    # ── Gráficos ──────────────────────────────────────────────────────────────
+    st.markdown(linha_kpis([
+        kpi(fmt_pct(pct), "Conformidade dos elementos",
+            f"<strong>{n_ok} de {len(aval)}</strong> elementos medidos atendem à norma", "c-green",
+            mini_barra([(n_ok, CORES_STATUS["Conforme"]), (len(aval) - n_ok, CORES_STATUS["Não Conforme"])])),
+        kpi(len(nc_df), "Precisam de correção",
+            (f"elementos em <strong>{nc_df.item_nbr.nunique()}</strong> "
+             f"{'item' if nc_df.item_nbr.nunique() == 1 else 'itens'} da norma") if len(nc_df)
+            else "nenhum elemento fora da norma", "c-red" if len(nc_df) else ""),
+        kpi(f"{proto['avaliados']}<span class='tec' style='font-size:1rem'>/{proto['aplicaveis']}</span>",
+            "Itens da norma avaliados",
+            f"cobertura <strong>{proto['classe'].lower()}</strong>"
+            + (f" · {proto['indeterminados']} sem dados suficientes" if proto['indeterminados'] else ""),
+            "c-blue"),
+        kpi(fmt_pct(alta_pct), "Medidas lidas direto do modelo",
+            "o restante foi calculado da geometria ou estimado pelo nome",
+            extra_html=mini_barra([(cont_origem.get(k, 0), CORES_CONFIANCA[k]) for k in ("ALTA", "MEDIA", "BAIXA")])),
+    ]), unsafe_allow_html=True)
+
+    # ── Distribuição dos resultados  |  De onde vêm os dados ─────────────────
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown('<div class="section-title">Status por item da NBR</div>',
-                    unsafe_allow_html=True)
-        st.altair_chart(_grafico_status_por_item(df), use_container_width=True, theme=None)
+        with st.container(border=True):
+            st.markdown('<div class="card-tit">Resultado das verificações</div>'
+                        '<div class="card-sub">Cada verificação = 1 elemento conferido contra 1 item da norma</div>',
+                        unsafe_allow_html=True)
+            st.markdown(barra_segmentada(segmentos_status(cont_status), "Verificações"),
+                        unsafe_allow_html=True)
     with col2:
-        st.markdown('<div class="section-title">Confiança dos dados por item</div>',
-                    unsafe_allow_html=True)
-        st.altair_chart(_grafico_confianca(df), use_container_width=True, theme=None)
+        with st.container(border=True):
+            st.markdown('<div class="card-tit">De onde vêm os dados</div>'
+                        '<div class="card-sub">Quanto mais direto o dado, mais confiável a verificação</div>',
+                        unsafe_allow_html=True)
+            st.markdown(barra_segmentada(segmentos_origem(cont_origem), "Medidas"),
+                        unsafe_allow_html=True)
 
-    st.markdown('<div class="section-title">Onde estão os problemas: pavimento × item</div>',
-                unsafe_allow_html=True)
-    hm = _heatmap_pavimento_item(df)
-    if hm is not None:
-        st.dataframe(hm, use_container_width=True)
-        st.caption("Cada célula mostra não conformes / elementos avaliados. "
-                   "Quanto mais vermelha, maior a concentração de falhas.")
-    else:
-        st.caption("Sem elementos avaliados (Conforme/Não Conforme) para o mapa.")
+    # ── Status por item (resumo à esquerda, gráfico à direita) ───────────────
+    with st.container(border=True):
+        st.markdown('<div class="card-tit">Resultado por item da norma</div>'
+                    '<div class="card-sub">Quantos elementos foram conferidos em cada item, e com que resultado</div>',
+                    unsafe_allow_html=True)
+        c_esq, c_dir = st.columns([1, 4])
+        with c_esq:
+            st.markdown(f"""
+            <div class="resumo-lado">
+              <div><div class="rl-num">{df.item_nbr.nunique()}</div><div class="rl-lbl">itens da norma com elementos medidos</div></div>
+              <div><div class="rl-num">{df.global_id.nunique()}</div><div class="rl-lbl">elementos distintos auditados</div></div>
+              <div><div class="rl-num">{len(df)}</div><div class="rl-lbl">verificações no total</div></div>
+            </div>""", unsafe_allow_html=True)
+        with c_dir:
+            st.altair_chart(_grafico_status_por_item(df), use_container_width=True, theme=None)
+
+    # ── Onde estão os problemas ──────────────────────────────────────────────
+    with st.container(border=True):
+        st.markdown('<div class="card-tit">Onde estão os problemas</div>'
+                    '<div class="card-sub">Pavimento × item da norma · cada célula mostra '
+                    '<strong>não conformes / elementos medidos</strong>; quanto mais vermelha, mais falhas</div>',
+                    unsafe_allow_html=True)
+        hm = _heatmap_pavimento_item(df)
+        if hm is not None:
+            st.dataframe(hm, use_container_width=True)
+        else:
+            st.caption("Sem elementos medidos (conforme / não conforme) para montar o mapa.")
 
     # ── Lista de ação: não conformidades ─────────────────────────────────────
-    nc = df[df.status == "Não Conforme"].sort_values(["item_nbr", "pavimento"])
-    st.markdown(f'<div class="section-title">Lista de ação — {len(nc)} não conformidades</div>',
-                unsafe_allow_html=True)
-    if nc.empty:
-        st.caption("Nenhuma não conformidade por elemento. 🎉")
-    else:
-        st.dataframe(
-            nc[["item_label", "nome", "pavimento", "valor_medido", "valor_exigido",
-                "mensagem", "global_id"]].assign(),
-            hide_index=True, use_container_width=True,
-            column_config={
-                "item_label": "Item", "nome": "Elemento", "pavimento": "Pavimento",
-                "valor_medido": "Medido", "valor_exigido": "Exigido",
-                "mensagem": "Observação", "global_id": "GlobalId",
-            })
+    nc = nc_df.sort_values(["item_nbr", "pavimento"])
+    with st.container(border=True):
+        st.markdown(f'<div class="card-tit">Lista de ação</div>'
+                    f'<div class="card-sub">{len(nc)} '
+                    f'{"elemento precisa" if len(nc) == 1 else "elementos precisam"} de correção</div>',
+                    unsafe_allow_html=True)
+        if nc.empty:
+            st.markdown('<div class="texto-suave">✓ Nenhum elemento fora da norma nas verificações medidas.</div>',
+                        unsafe_allow_html=True)
+        else:
+            st.dataframe(
+                nc[["item_label", "nome", "pavimento", "valor_medido", "valor_exigido",
+                    "mensagem", "global_id"]],
+                hide_index=True, use_container_width=True,
+                column_config={
+                    "item_label": "Item", "nome": "Elemento", "pavimento": "Pavimento",
+                    "valor_medido": "Medido", "valor_exigido": "Exigido",
+                    "mensagem": "Observação", "global_id": "GlobalId",
+                })
 
     # ── Exportação BCF ────────────────────────────────────────────────────────
     todas = pd.DataFrame(linhas)
@@ -291,7 +351,7 @@ def render_dashboard(linhas: list[dict] | None, resultado: dict | None,
     if n_nc_total:
         bcf_bytes, n_top = gerar_bcfzip(linhas, arquivo_ifc, malhas)
         st.download_button(
-            f"📌 Baixar {n_top} não conformidades em BCF (.bcfzip)",
+            f"Baixar {n_top} não conformidades em BCF (.bcfzip)",
             data=bcf_bytes,
             file_name=f"{arquivo_ifc.rsplit('.', 1)[0]}_NBR9050.bcfzip",
             mime="application/octet-stream",
