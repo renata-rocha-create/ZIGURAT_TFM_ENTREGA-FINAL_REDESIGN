@@ -9,276 +9,142 @@ AUTORES = "Kevin Dias Quintian &nbsp;·&nbsp; Renata Gomes Rocha &nbsp;·&nbsp; 
 RODAPE_TXT = "Kevin Dias Quintian · Renata Gomes Rocha · Sergio Rosenboim · Viviane Nishizaki Suzuke · William Felipe dos Santos Moura"
 
 def gerar_relatorio_html(resultado: dict, modelo_nome: str) -> str:
-    """Generate a self-contained HTML report — Zigurat brand."""
+    """Relatório HTML autocontido — identidade visual access Ai (mesmo CSS do app)."""
+    # Import local: mantém relatorios.py importável sem a interface carregada
+    from html import escape
+    from ui_style import CSS, LOGO_SIMBOLO_SVG, status_badge
+    from ui_componentes import (conformidade_cards_html, analise_geral_html, kpi, linha_kpis,
+                                SIMBOLO_STATUS, SIGNIFICADO_STATUS, ROTULO_STATUS_PLURAL)
+    from verificacoes import classificar_status
+
     now = datetime.now().strftime("%d/%m/%Y %H:%M")
     resumo = resultado.get("resumo", {})
-    itens  = resultado.get("resultados", [])
+    itens = resultado.get("resultados", [])
 
-    # status color map
-    def st_color(s):
-        sl = s.lower()
-        if "parcial" in sl: return "#7c3ac4"
-        if "conforme" in sl and "não" not in sl and "nao" not in sl: return "#1ab87a"
-        if "não" in sl or "nao" in sl: return "#e03c3c"
-        if "indet" in sl: return "#e8920a"
-        return "#6b7280"
+    cores_txt = {"Conforme": "c-green", "Parcial": "c-purple", "Não Conforme": "c-red",
+                 "Indeterminado": "c-amber", "N/A": "c-muted"}
+    chaves = {"Conforme": "conformes", "Parcial": "parciais", "Não Conforme": "nao_conformes",
+              "Indeterminado": "indeterminados", "N/A": "na"}
+    cards_status = linha_kpis([
+        kpi(f'<span class="{cores_txt[s_]}" style="font-size:1.1rem;margin-right:6px">{SIMBOLO_STATUS[s_]}</span>'
+            f'{resumo.get(chaves[s_], 0)}', ROTULO_STATUS_PLURAL[s_], SIGNIFICADO_STATUS[s_].capitalize())
+        for s_ in ["Conforme", "Parcial", "Não Conforme", "Indeterminado", "N/A"]])
 
     rows = ""
     for it in itens:
-        gid = it.get("globalid","") or ""
-        gid_cell = f'<code style="font-family:\'Courier New\',monospace;font-size:0.73em;background:#eef1f8;border:1px solid #c5cad8;border-radius:4px;padding:2px 7px;color:rgb(28,96,241);letter-spacing:0.02em">{gid}</code>' if gid and gid != "—" else '<span style="color:#aab0be;font-size:0.8em">—</span>'
-        st = it.get("status","N/A")
-        rec = it.get("recomendacao","") or ""
-        confianca_tag = ' <span title="Avaliação qualitativa — recomenda-se confirmação humana" style="cursor:help">🔍</span>' if it.get("requer_confirmacao_humana") else ""
+        gid = it.get("globalid", "") or ""
+        gid_cell = f'<span class="globalid">{escape(gid)}</span>' if gid and gid != "—" else '<span class="td-muted">—</span>'
+        stt = it.get("status", "N/A")
+        rec = escape(it.get("recomendacao", "") or "") or "—"
+        precisa_acao = classificar_status(stt) in ("Não Conforme", "Parcial", "Indeterminado")
+        rec_cell = f'<span class="td-rec">{rec}</span>' if precisa_acao else f'<span class="td-muted">{rec}</span>'
+        conferir = (' <span class="pill" title="Avaliação baseada no nome/tipo do elemento, não em medição direta">'
+                    'conferir</span>') if it.get("requer_confirmacao_humana") else ""
         rows += f"""
         <tr>
-          <td><code style="background:#f0f3fb;border-radius:4px;padding:2px 6px;font-size:0.8em;color:rgb(28,96,241)">{it.get('item_nbr','—')}</code>{confianca_tag}</td>
-          <td style="color:#3d4252">{it.get('categoria','—')}</td>
-          <td style="color:#1a1d26;max-width:200px">{it.get('elemento','—')}</td>
-          <td style="color:{st_color(st)};font-weight:700;white-space:nowrap">{st}</td>
-          <td style="color:#3d4252;font-family:'Courier New',monospace;font-size:0.8em">{it.get('valor_encontrado','—')}</td>
-          <td style="color:#3d4252;font-family:'Courier New',monospace;font-size:0.8em">{it.get('valor_exigido','—')}</td>
-          <td style="white-space:nowrap">{gid_cell}</td>
-          <td style="color:#6b7280;font-size:0.82em">{it.get('tipo_ifc','—')}</td>
-          <td style="color:#b52929;font-size:0.82em">{rec}</td>
+          <td class="td-item">{escape(str(it.get('item_nbr', '—')))}{conferir}</td>
+          <td class="td-muted">{escape(str(it.get('categoria', '—')))}</td>
+          <td class="td-strong">{escape(str(it.get('elemento', '—')))}</td>
+          <td>{status_badge(stt)}</td>
+          <td class="td-mono" style="white-space:normal">{escape(str(it.get('valor_encontrado', '—')))}</td>
+          <td class="td-mono" style="white-space:normal">{escape(str(it.get('valor_exigido', '—')))}</td>
+          <td>{gid_cell}</td>
+          <td class="td-mono td-muted">{escape(str(it.get('tipo_ifc', '—')))}</td>
+          <td>{rec_cell}</td>
         </tr>"""
 
     return f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Relatório NBR 9050 — {modelo_nome}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relatório NBR 9050 — {escape(modelo_nome)}</title>
+{CSS}
 <style>
-  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{
-    font-family: 'Trebuchet MS', Trebuchet, Arial, sans-serif;
-    background: #ffffff;
-    color: #1a1d26;
-    padding: 0;
-  }}
-
-  /* ── Header ── */
-  .header {{
-    background: linear-gradient(120deg, rgb(77,83,99) 0%, rgb(50,56,72) 100%);
-    padding: 1.5rem 2.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }}
-  .header-left h1 {{
-    color: rgb(68,205,148);
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 0.2rem;
-  }}
-  .header-left .sub {{
-    color: rgba(255,255,255,0.55);
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-  }}
-  .header-logo {{
-    background: #ffffff;
-    border-radius: 7px;
-    padding: 5px 12px;
-    display: inline-flex;
-    align-items: center;
-    flex-shrink: 0;
-  }}
-  .header-logo img {{ height: 32px; display: block; }}
-
-  /* ── Body content ── */
-  .content {{ padding: 2rem 2.5rem; }}
-
-  /* ── Meta line ── */
-  .meta {{
-    font-family: 'Courier New', monospace;
-    font-size: 0.78rem;
-    color: #6b7280;
-    margin-bottom: 1.75rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #e5e7eb;
-  }}
-  .meta strong {{ color: #1a1d26; }}
-
-  /* ── Section titles ── */
-  h2 {{
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: rgb(28,96,241);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    margin: 1.75rem 0 0.85rem 0;
-  }}
-
-  /* ── Metric cards ── */
-  .resumo {{ display: flex; gap: 0.85rem; flex-wrap: wrap; margin-bottom: 1.5rem; }}
-  .card {{
-    flex: 1; min-width: 100px;
-    background: #f4f6f9;
-    border: 1px solid #e5e7eb;
-    border-top: 3px solid rgb(68,205,148);
-    border-radius: 8px;
-    padding: 0.85rem 1rem;
-    text-align: center;
-  }}
-  .card .num {{ font-size: 1.9rem; font-weight: 800; line-height: 1; margin-bottom: 0.2rem; }}
-  .card .lbl {{ font-size: 0.6rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.1em; }}
-
-  /* ── Obs box ── */
-  .obs {{
-    background: #f4f6f9;
-    border-left: 3px solid rgb(68,205,148);
-    border-radius: 0 6px 6px 0;
-    padding: 1rem 1.25rem;
-    font-size: 0.85rem;
-    color: #3d4252;
-    margin: 0 0 1.5rem 0;
-    line-height: 1.65;
-  }}
-
-  /* ── GlobalId tip ── */
-  .globalid-tip {{
-    font-size: 0.75rem;
-    color: #6b7280;
-    margin-bottom: 0.75rem;
-    padding: 0.5rem 0.85rem;
-    background: #eef1f8;
-    border-radius: 6px;
-    border-left: 3px solid rgb(28,96,241);
-  }}
-  .globalid-tip strong {{ color: rgb(28,96,241); }}
-
-  /* ── Table ── */
-  table {{ width: 100%; border-collapse: collapse; font-size: 0.8rem; }}
-  thead {{ position: sticky; top: 0; }}
-  th {{
-    background: rgb(77,83,99);
-    color: #ffffff;
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    padding: 10px 12px;
-    text-align: left;
-    border-bottom: 2px solid rgb(28,96,241);
-    white-space: nowrap;
-  }}
-  th.col-gid {{ color: rgb(68,205,148); }}
-  td {{ padding: 9px 12px; border-bottom: 1px solid #f0f1f4; vertical-align: top; }}
-  tr:nth-child(even) td {{ background: #fafbfc; }}
-  tr:hover td {{ background: rgba(68,205,148,0.06); }}
-
-  /* ── Footer ── */
-  .footer {{
-    background: rgb(77,83,99);
-    padding: 1rem 2.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 2.5rem;
-  }}
-  .footer-left {{
-    font-size: 0.7rem;
-    color: rgba(255,255,255,0.5);
-    line-height: 1.6;
-  }}
-  .footer-left strong {{ color: rgb(68,205,148); display: block; margin-bottom: 0.2rem; font-size: 0.72rem; }}
-  .footer-left .autores {{ color: rgba(255,255,255,0.7); }}
-  .footer-logo {{
-    background: #ffffff;
-    border-radius: 7px;
-    padding: 4px 10px;
-    display: inline-flex;
-    align-items: center;
-  }}
-  .footer-logo img {{ height: 20px; display: block; }}
-  .footer-right {{
-    font-family: 'Courier New', monospace;
-    font-size: 0.65rem;
-    color: rgba(255,255,255,0.35);
-    text-align: right;
+  body {{ margin: 0; background: var(--canvas); color: var(--deep); font-family: var(--font); }}
+  .pagina {{ max-width: 1180px; margin: 0 auto; padding: 2.5rem 2rem 1rem 2rem; }}
+  .rel-topo {{ display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem;
+              padding-bottom: 1.25rem; border-bottom: 1px solid var(--linha); margin-bottom: 1.25rem; flex-wrap: wrap; }}
+  .rel-titulo {{ font-family: var(--display); font-size: 1.7rem; font-weight: 600; letter-spacing: -0.02em; margin-top: 1rem; }}
+  .meta {{ display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; font-size: 0.8rem; color: var(--muted); margin-bottom: 1.5rem; }}
+  .meta strong {{ color: var(--deep); font-weight: 600; }}
+  .nota-tabela {{ font-size: 0.78rem; color: var(--muted); margin: -0.25rem 0 0.75rem 0; line-height: 1.6; }}
+  .rodape {{ max-width: 1180px; margin: 2.5rem auto 0 auto; padding: 1.25rem 2rem 2rem 2rem; border-top: 1px solid var(--linha);
+            display: flex; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; font-size: 0.72rem; color: var(--muted); line-height: 1.6; }}
+  .rodape strong {{ color: var(--texto-2); }}
+  .rodape img {{ height: 18px; opacity: 0.8; display: block; margin-bottom: 0.35rem; margin-left: auto; }}
+  @media print {{
+    body {{ background: #fff; }}
+    .metric-card, .conf-card, .analise, .result-table {{ box-shadow: none; }}
+    thead {{ display: table-header-group; }}
+    tr {{ page-break-inside: avoid; }}
   }}
 </style>
 </head>
 <body>
+<div class="pagina">
 
-<!-- ── Header ── -->
-<div class="header">
-  <div class="header-left">
-    <h1>&#9855; Relatório de Verificação de Acessibilidade BIM</h1>
-    <div class="sub">Verificação Automatizada de Conformidade &nbsp;·&nbsp; ABNT NBR 9050:2020</div>
-  </div>
-  <div class="header-logo">
-    <img src="https://www.e-zigurat.com/images/logo.svg" alt="Zigurat Institute of Technology" />
-  </div>
-</div>
-</div>
-
-<!-- ── Content ── -->
-<div class="content">
-
-  <p class="meta">
-    Norma: <strong>ABNT NBR 9050:2020</strong> &nbsp;|&nbsp;
-    Modelo: <strong>{modelo_nome}</strong> &nbsp;|&nbsp;
-    Schema IFC: <strong>{resultado.get('schema_ifc','—')}</strong> &nbsp;|&nbsp;
-    Emitido em: <strong>{now}</strong>
-  </p>
-
-  <h2>Resumo Executivo</h2>
-  <div class="resumo">
-    <div class="card"><div class="num" style="color:#1a1d26">{resumo.get('total',0)}</div><div class="lbl">Total</div></div>
-    <div class="card"><div class="num" style="color:#1ab87a">{resumo.get('conformes',0)}</div><div class="lbl">Conformes</div></div>
-    <div class="card"><div class="num" style="color:#7c3ac4">{resumo.get('parciais',0)}</div><div class="lbl">Parciais</div></div>
-    <div class="card"><div class="num" style="color:#e03c3c">{resumo.get('nao_conformes',0)}</div><div class="lbl">Não Conformes</div></div>
-    <div class="card"><div class="num" style="color:#e8920a">{resumo.get('indeterminados',0)}</div><div class="lbl">Indeterminados</div></div>
-    <div class="card"><div class="num" style="color:#6b7280">{resumo.get('na',0)}</div><div class="lbl">N/A</div></div>
-    <div class="card"><div class="num" style="color:rgb(28,96,241)">{resumo.get('percentual_conformidade','—')}</div><div class="lbl">Conformidade (bruta)</div></div>
-    <div class="card"><div class="num" style="color:#0c447c">{resumo.get('percentual_sobre_verificaveis','—')}</div><div class="lbl">Conformidade (s/ N/A)</div></div>
+  <div class="rel-topo">
+    <div>
+      <div class="brand" style="border:none;padding:0;margin:0">
+        <div class="brand-row">
+          <span class="brand-word">access</span>
+          <span class="brand-mark" style="height:24px;width:27px">{LOGO_SIMBOLO_SVG}</span>
+        </div>
+        <div class="brand-tagline">NBR 9050 · Accessibility Checker</div>
+      </div>
+      <div class="rel-titulo">Relatório de verificação de acessibilidade</div>
+    </div>
+    <div class="hero-sub" style="text-align:right;margin-top:0.4rem">Auditoria BIM<br>ABNT NBR 9050:2020</div>
   </div>
 
-  <div class="obs">{resultado.get('observacoes_gerais','—')}</div>
-
-  <h2>Resultados Detalhados por Elemento</h2>
-  <div class="globalid-tip">
-    💡 A coluna <strong>GlobalId</strong> é o identificador único do elemento no IFC — o "CPF" do elemento.
-    Use-o no Revit (<em>Manage → Select by ID</em>), no Navisworks ou no BIMcollab para localizar o elemento diretamente no modelo.
-    <br>🔍 ao lado do item = avaliação qualitativa (baseada em nome/tipo, não em medição direta) — recomenda-se confirmação humana.
-    <br><span style="color:#7c3ac4;font-weight:700">▲ Parcial</span> = alguns dos elementos avaliados atendem ao critério e outros não (ver "Valor Encontrado" para a proporção).
+  <div class="meta">
+    <span>Modelo: <strong>{escape(modelo_nome)}</strong></span>
+    <span>Schema IFC: <strong>{escape(str(resultado.get('schema_ifc', '—')))}</strong></span>
+    <span>Norma: <strong>ABNT NBR 9050:2020</strong></span>
+    <span>Emitido em: <strong>{now}</strong></span>
   </div>
 
-  <table>
+  <div class="section-title">Conformidade do modelo</div>
+  {conformidade_cards_html(resumo)}
+
+  <div class="section-title">Itens da norma por resultado <span class="section-sub">{resumo.get('total', len(itens))} itens avaliados</span></div>
+  {cards_status}
+
+  <div class="section-title">Análise geral</div>
+  {analise_geral_html(resultado)}
+
+  <div class="section-title">Resultados detalhados</div>
+  <div class="nota-tabela">
+    <strong>GlobalId</strong> é o identificador único do elemento no IFC (o "CPF" do elemento): use-o no Revit,
+    Navisworks ou BIMcollab para localizar o elemento no modelo.
+    <span class="pill">conferir</span> indica avaliação feita pelo nome do elemento, e não por medição — recomenda-se confirmação humana.
+    <strong>Parcial</strong> significa que parte dos elementos atende e parte não (ver "Encontrado").
+  </div>
+  <div style="overflow-x:auto">
+  <table class="result-table">
     <thead>
       <tr>
-        <th>Item NBR</th>
-        <th>Categoria</th>
-        <th>Elemento</th>
-        <th>Status</th>
-        <th>Valor Encontrado</th>
-        <th>Valor Exigido</th>
-        <th class="col-gid">&#128273; GlobalId (IFC/Revit)</th>
-        <th>Tipo IFC</th>
-        <th>Recomendação</th>
+        <th>Item NBR</th><th>Categoria</th><th>Elemento</th><th>Status</th>
+        <th>Encontrado</th><th>Exigido</th><th>GlobalId</th><th>Tipo IFC</th><th>Recomendação</th>
       </tr>
     </thead>
     <tbody>{rows}</tbody>
   </table>
-
-</div><!-- /content -->
-
-<!-- ── Footer ── -->
-<div class="footer">
-  <div class="footer-left">
-    <strong>TFM | Grupo 1</strong>
-    <span class="autores">{AUTORES}</span>
-    <span style="color:rgba(255,255,255,0.3);font-size:0.65rem;margin-top:0.3rem;display:block">
-      Gerado automaticamente por IA — verificação manual complementar necessária para itens qualitativos e indeterminados.
-    </span>
   </div>
-  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.5rem">
-    <div class="footer-logo">
-      <img src="https://www.e-zigurat.com/images/logo.svg" alt="Zigurat" />
-    </div>
-    <div class="footer-right">Master IA para AEC &nbsp;·&nbsp; {now}</div>
+
+</div>
+
+<div class="rodape">
+  <div>
+    <strong>TFM · Grupo 1</strong><br>
+    {AUTORES}<br>
+    Gerado automaticamente — itens qualitativos e indeterminados exigem verificação manual complementar.
+  </div>
+  <div style="text-align:right">
+    <img src="https://www.e-zigurat.com/images/logo.svg" alt="Zigurat Institute of Technology" />
+    Master Internacional em IA para Arquitetura e Construção<br>
+    Zigurat Institute of Technology · {now}
   </div>
 </div>
 
