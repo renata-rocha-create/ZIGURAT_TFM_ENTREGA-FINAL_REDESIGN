@@ -1,0 +1,14 @@
+# Tema "access Ai" — aplica as cores da marca aos componentes NATIVOS do
+# Streamlit (filtros, chips do multiselect, checkbox, barra de progresso,
+# foco dos inputs). O ui_style.py cuida do resto (CSS fino).
+
+[theme]
+base = "light"                       # força o tema claro (ignora o modo escuro do sistema)
+primaryColor = "#2563EB"             # azul da marca -> ações e seleção
+backgroundColor = "#F8FAFC"          # off-white -> fundo da página
+secondaryBackgroundColor = "#F1F5F9" # cinza suave -> inputs e áreas secundárias
+textColor = "#0B1F3B"                # deep blue -> texto
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"              # esconde o menu de desenvolvedor do Streamlit
