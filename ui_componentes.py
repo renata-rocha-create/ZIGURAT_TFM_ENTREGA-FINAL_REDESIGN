@@ -14,6 +14,17 @@ from ui_style import (CORES_STATUS, SIMBOLO_STATUS, CORES_CONFIANCA,
                       SIMBOLO_CONFIANCA)
 from verificacoes import classificar_status, CATEGORIAS
 
+def _compacto(html: str) -> str:
+    """
+    Remove quebras de linha e recuos do HTML.
+
+    Por quê: o st.markdown interpreta o texto como Markdown, e no Markdown uma
+    linha em branco seguida de texto recuado (4+ espaços) vira BLOCO DE CÓDIGO —
+    o HTML aparece cru na tela em vez de ser desenhado.
+    """
+    return " ".join(l.strip() for l in html.splitlines() if l.strip())
+
+
 ORDEM_STATUS = ["Conforme", "Parcial", "Não Conforme", "Indeterminado", "N/A"]
 
 # Rótulo curto (plural) de cada status, para listas e legendas
@@ -128,10 +139,10 @@ def barra_segmentada(itens: list[dict], titulo_total: str = "Total") -> str:
           <span class="seg-qtd">{i['qtd']}</span>
           <span class="seg-pct">{fmt_pct(pct)}</span>
         </div>""")
-    return f"""
+    return _compacto(f"""
     <div class="seg-head"><span>{titulo_total}</span><strong>{total}</strong></div>
     <div class="segbar" role="img" aria-label="Distribuição">{''.join(segs)}</div>
-    <div class="seg-list">{''.join(linhas)}</div>"""
+    <div class="seg-list">{''.join(linhas)}</div>""")
 
 
 def segmentos_status(contagens: dict) -> list[dict]:
@@ -156,13 +167,13 @@ def legenda_origem_html() -> str:
         f'<div class="leg-row"><span class="leg-sym">{SIMBOLO_CONFIANCA[n]}</span>'
         f'<div><strong>{ORIGEM_DADO[n]["rotulo"]}:</strong> {ORIGEM_DADO[n]["explica"]}</div></div>'
         for n in ("ALTA", "MEDIA", "BAIXA"))
-    return f"""
+    return _compacto(f"""
     <div class="legenda">
       <div class="leg-title">De onde vem cada medida?</div>
       {linhas}
       <div class="leg-nota">Quanto mais barras, mais direto é o dado. Na metodologia do TFM,
       isso corresponde ao nível de confiança (alta, média, baixa) por proveniência do dado.</div>
-    </div>"""
+    </div>""")
 
 
 def conformidade_cards_html(resumo: dict) -> str:
@@ -176,7 +187,7 @@ def conformidade_cards_html(resumo: dict) -> str:
                   if na == 0 else
                   f"{na} {'item não se aplica' if na == 1 else 'itens não se aplicam'} a este modelo "
                   f"e {'sai' if na == 1 else 'saem'} da segunda conta.")
-    return f"""
+    return _compacto(f"""
     <div class="conf-row">
       <div class="conf-card">
         <div class="metric-label">Conformidade geral <span class="tec">(bruta)</span></div>
@@ -191,7 +202,7 @@ def conformidade_cards_html(resumo: dict) -> str:
         modelo. É a medida mais justa do projeto.</div>
       </div>
     </div>
-    <div class="conf-nota">{nota_igual} Itens <em>parciais</em> contam como meio ponto.</div>"""
+    <div class="conf-nota">{nota_igual} Itens <em>parciais</em> contam como meio ponto.</div>""")
 
 
 def como_calculamos_md(resumo: dict) -> str:
@@ -280,9 +291,9 @@ def analise_geral_html(resultado: dict) -> str:
           {linhas}
         </div>"""
 
-    return f"""
+    return _compacto(f"""
     <div class="analise">
       <div class="an-manchete an-{classe}">{manchete}</div>
       {''.join(blocos)}
       {corr_html}
-    </div>"""
+    </div>""")
