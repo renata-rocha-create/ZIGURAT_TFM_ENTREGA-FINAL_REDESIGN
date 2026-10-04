@@ -1,310 +1,373 @@
 """
-ui_style.py — Identidade visual Zigurat (CSS) e componentes visuais simples.
+ui_style.py — Identidade visual "access Ai" (CSS, paletas e componentes simples).
 
 Só APARÊNCIA: nenhuma lógica de auditoria vive aqui.
+
+Regra de ouro do sistema de cores
+---------------------------------
+Existem DUAS paletas separadas, que nunca se misturam:
+
+1. MARCA (identidade): deep blue, azul e teal.
+   - Azul  -> ações (botões, abas, links, foco).
+   - Teal  -> só no logo e em detalhes mínimos de marca.
+   - Deep blue -> textos e títulos.
+2. STATUS (semântica): conforme, parcial, não conforme, indeterminado, N/A.
+   - Cada status tem cor + símbolo + rótulo (nunca só cor -> daltonismo).
+
+Assim um botão da marca nunca é confundido com um resultado "conforme".
+Todas as cores de texto passam no contraste WCAG AA (>= 4,5:1).
 """
 import streamlit as st
 
 from verificacoes import classificar_status
 
-CSS_ZIGURAT = """
+# ══════════════════════════════════════════════════════════════════════════════
+# PALETAS (fonte única — dashboard.py e visualizador_3d.py importam daqui)
+# ══════════════════════════════════════════════════════════════════════════════
+PALETA = {
+    "deep":       "#0B1F3B",   # texto principal, títulos  (16,5:1 no branco)
+    "azul":       "#2563EB",   # ação primária              (5,2:1)
+    "azul_hover": "#1D4ED8",
+    "teal":       "#10B981",   # SÓ marca/logo (2,5:1 -> nunca usar como texto)
+    "teal_texto": "#047857",   # teal quando precisar ser texto (5,5:1)
+    "canvas":     "#F8FAFC",   # fundo da página (off-white)
+    "superficie": "#FFFFFF",   # cards, sidebar
+    "suave":      "#F1F5F9",   # inputs, cabeçalho de tabela
+    "linha":      "#E2E8F0",   # bordas e divisores
+    "texto_2":    "#334155",   # texto secundário
+    "muted":      "#64748B",   # legendas (4,8:1)
+}
+
+# Preenchimentos (gráficos, 3D, ícones) — contraste >= 3:1 no branco
+CORES_STATUS = {
+    "Conforme":      "#059669",
+    "Parcial":       "#7C3AED",
+    "Não Conforme":  "#DC2626",
+    "Indeterminado": "#D97706",
+    "N/A":           "#94A3B8",   # propositalmente apagado: "não se aplica"
+}
+
+# Símbolos de status — forma diferente para cada um (não depende de cor)
+SIMBOLO_STATUS = {
+    "Conforme":      "✓",
+    "Parcial":       "◐",
+    "Não Conforme":  "✕",
+    "Indeterminado": "?",
+    "N/A":           "—",
+}
+
+# Confiança usa OUTRO canal visual: escala de azul (escuro = mais confiável).
+# Antes era verde/amarelo/vermelho, que se confundia com os status.
+CORES_CONFIANCA = {"ALTA": "#0B1F3B", "MEDIA": "#2563EB", "BAIXA": "#94A3B8"}
+SIMBOLO_CONFIANCA = {"ALTA": "▮▮▮", "MEDIA": "▮▮▯", "BAIXA": "▮▯▯"}
+
+FONTE_UI = "Inter"
+FONTE_DISPLAY = "Outfit"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LOGO (símbolo vetorial + wordmark em HTML)
+# ══════════════════════════════════════════════════════════════════════════════
+# Símbolo "Ai": o "A" é uma peça única (perna inclinada que lembra uma rampa +
+# perna vertical, com recorte triangular por baixo) e o "i" é teal.
+# Redesenhado em vetor a partir do ícone da marca (viewBox 410 x 370).
+LOGO_SIMBOLO_SVG = """<svg viewBox="0 0 410 370" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="access Ai">
+  <path d="M8,365 L152,146 Q164,127 188,127 L285,127 L285,365 L215,365 L215,180 L95,365 Z" fill="#2563EB"/>
+  <rect x="322" y="125" width="80" height="240" fill="#10B981"/>
+  <circle cx="360" cy="48" r="45" fill="#10B981"/>
+</svg>"""
+
+
+def logo_html(tamanho_px: int = 24, com_tagline: bool = True) -> str:
+    """Bloco do logo para a sidebar: 'access' + símbolo + tagline.
+
+    tamanho_px = altura total do símbolo (com o ponto do i). A barra do "i"
+    ocupa ~65% dessa altura e deve coincidir com a altura das minúsculas.
+    """
+    tagline = (
+        '<div class="brand-tagline">NBR 9050 · Accessibility Checker</div>'
+        if com_tagline else ""
+    )
+    return f"""
+    <div class="brand">
+      <div class="brand-row">
+        <span class="brand-word">access</span>
+        <span class="brand-mark" style="height:{tamanho_px}px;width:{int(tamanho_px*410/370)}px">
+          {LOGO_SIMBOLO_SVG}
+        </span>
+      </div>
+      {tagline}
+    </div>
+    """
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CSS
+# ══════════════════════════════════════════════════════════════════════════════
+CSS = f"""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-:root {
-    --zk-slate:  rgb(77,83,99);
-    --zk-green:  rgb(68,205,148);
-    --zk-blue:   rgb(28,96,241);
-    --bg:        #ffffff;
-    --surface:   #f4f6f9;
-    --border:    #d1d5de;
-    --border-dk: rgb(77,83,99);
-    --text:      #1a1d26;
-    --muted:     #6b7280;
-    --success:   #1ab87a;
-    --danger:    #e03c3c;
-    --warn:      #e8920a;
-    --font: 'Trebuchet MS', Trebuchet, Arial, sans-serif;
-    --mono: 'Courier New', Courier, monospace;
-}
+:root {{
+    --deep:      {PALETA['deep']};
+    --azul:      {PALETA['azul']};
+    --azul-h:    {PALETA['azul_hover']};
+    --teal:      {PALETA['teal']};
+    --teal-txt:  {PALETA['teal_texto']};
+    --canvas:    {PALETA['canvas']};
+    --surface:   {PALETA['superficie']};
+    --suave:     {PALETA['suave']};
+    --linha:     {PALETA['linha']};
+    --texto-2:   {PALETA['texto_2']};
+    --muted:     {PALETA['muted']};
 
-/* ── Global ── */
-html, body, .stApp, [class*="css"] {
-    font-family: var(--font) !important;
-    background-color: var(--bg) !important;
-    color: var(--text) !important;
-}
-.stApp { background-color: var(--bg) !important; }
-.stApp p, .stApp span, .stApp label, .stApp div,
-.stApp h1, .stApp h2, .stApp h3, .stApp li { color: var(--text) !important; }
+    --ok:   #047857;  --ok-bg:   #ECFDF5;
+    --parc: #6D28D9;  --parc-bg: #F5F3FF;
+    --nc:   #B91C1C;  --nc-bg:   #FEF2F2;
+    --ind:  #B45309;  --ind-bg:  #FFFBEB;
+    --na:   #475569;  --na-bg:   #F1F5F9;
 
-/* ════════════════════════════════════
-   SIDEBAR — fundo BRANCO
-   ════════════════════════════════════ */
-[data-testid="stSidebar"] {
-    background: #ffffff !important;
-    border-right: 5px solid var(--zk-green) !important;
-}
-/* Textos escuros na sidebar branca */
-[data-testid="stSidebar"] p,
-[data-testid="stSidebar"] span,
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] div,
-[data-testid="stSidebar"] small,
-[data-testid="stSidebar"] .stMarkdown { color: var(--text) !important; }
+    --font:    '{FONTE_UI}', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+    --display: '{FONTE_DISPLAY}', '{FONTE_UI}', system-ui, sans-serif;
+    --mono:    'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
 
-/* Inputs na sidebar: fundo cinza claro, texto escuro */
-[data-testid="stSidebar"] input {
+    --raio:    10px;
+    --sombra:  0 1px 2px rgba(11,31,59,0.04), 0 1px 3px rgba(11,31,59,0.06);
+
+    /* compatibilidade com estilos antigos (dashboard.py usa var(--border)) */
+    --border:  {PALETA['linha']};
+    --text:    {PALETA['deep']};
+}}
+
+/* ── Base ─────────────────────────────────────────────────────────────── */
+html, body, .stApp, [class*="css"] {{ font-family: var(--font) !important; }}
+.stApp {{ background-color: var(--canvas) !important; color: var(--deep); }}
+.stApp h1, .stApp h2, .stApp h3 {{ font-family: var(--display) !important; color: var(--deep); letter-spacing: -0.01em; }}
+code, pre, .stCode {{ font-family: var(--mono) !important; }}
+hr {{ border-color: var(--linha) !important; }}
+[data-testid="stMainBlockContainer"], .block-container {{ padding-top: 2rem !important; max-width: 1280px; }}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────── */
+[data-testid="stSidebar"] {{
     background: var(--surface) !important;
-    color: var(--text) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 6px !important;
-    font-family: var(--font) !important;
-}
-[data-testid="stSidebar"] input::placeholder { color: var(--muted) !important; }
+    border-right: 1px solid var(--linha) !important;
+}}
+section[data-testid="stSidebar"] {{ min-width: 248px !important; max-width: 248px !important; }}
+[data-testid="stSidebar"] input,
+[data-testid="stSidebar"] [data-baseweb="select"] > div {{
+    background: var(--suave) !important; border: 1px solid var(--linha) !important; border-radius: 8px !important;
+}}
+.sb-label {{
+    font-size: 0.68rem; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.08em; margin: 1.1rem 0 0.4rem 0;
+}}
+.sb-hint {{ font-size: 0.7rem; color: var(--muted); margin: -0.2rem 0 0.35rem 0; }}
+.sb-footer {{ font-size: 0.68rem; color: var(--muted); line-height: 1.7; padding-top: 0.5rem; }}
+.sb-footer strong {{ color: var(--texto-2); font-weight: 600; }}
 
-/* Selectbox na sidebar */
-[data-testid="stSidebar"] [data-baseweb="select"] > div {
-    background: var(--surface) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 6px !important;
-}
-[data-testid="stSidebar"] [data-baseweb="select"] span,
-[data-testid="stSidebar"] [data-baseweb="select"] div {
-    color: var(--text) !important;
-    font-family: var(--font) !important;
-}
+/* ── Marca ────────────────────────────────────────────────────────────── */
+.brand {{ padding: 0.25rem 0 1rem 0; border-bottom: 1px solid var(--linha); margin-bottom: 0.25rem; }}
+.brand-row {{ display: flex; align-items: flex-end; gap: 5px; line-height: 1; }}
+.brand-word {{ font-family: var(--display); font-weight: 600; font-size: 1.75rem; color: var(--deep); letter-spacing: -0.03em; line-height: 1; }}
+.brand-mark {{ display: inline-block; margin-bottom: 0.2em; flex-shrink: 0; }}   /* apoia o símbolo na linha de base */
+.brand-mark svg {{ width: 100%; height: 100%; display: block; }}
+.brand-tagline {{ font-size: 0.6rem; color: var(--muted); letter-spacing: 0.18em; text-transform: uppercase; margin-top: 0.45rem; }}
 
-/* Dropdown list */
-[data-baseweb="popover"] [role="option"] {
-    background: #ffffff !important;
-    color: var(--text) !important;
-    font-family: var(--font) !important;
-}
-[data-baseweb="popover"] [role="option"]:hover,
-[data-baseweb="popover"] [aria-selected="true"] {
-    background: rgba(68,205,148,0.15) !important;
-    color: var(--text) !important;
-}
+/* ── Cabeçalho da página (hero) ───────────────────────────────────────── */
+.hero-block {{ display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }}
+.hero-title {{ font-family: var(--display); font-size: 1.9rem; font-weight: 600; color: var(--deep); line-height: 1.1; letter-spacing: -0.02em; }}
+.hero-sub {{ margin-top: 0.35rem; font-size: 0.9rem; color: var(--texto-2); display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }}
+.pill {{
+    display: inline-flex; align-items: center; gap: 4px; font-size: 0.7rem; font-weight: 600;
+    padding: 2px 9px; border-radius: 999px; background: var(--suave); color: var(--texto-2); border: 1px solid var(--linha);
+}}
+.pill-azul {{ background: #EFF6FF; color: var(--azul); border-color: #BFDBFE; }}
 
-/* Linha separadora verde na sidebar */
-[data-testid="stSidebar"] hr { border-color: var(--zk-green) !important; border-width: 2px !important; }
+/* ── Títulos de seção ─────────────────────────────────────────────────── */
+.section-title {{
+    font-family: var(--display); font-size: 1.05rem; font-weight: 600; color: var(--deep);
+    margin: 0.5rem 0 0.75rem 0; display: flex; align-items: center; gap: 0.5rem;
+}}
+.section-sub {{ font-family: var(--font); font-weight: 400; color: var(--muted); font-size: 0.8rem; }}
+.texto-suave {{ font-size: 0.82rem; color: var(--muted); }}
 
-/* Labels da sidebar */
-[data-testid="stSidebar"] .stSelectbox label,
-[data-testid="stSidebar"] .stTextInput label,
-[data-testid="stSidebar"] .stSlider label { color: var(--zk-slate) !important; font-weight: 600 !important; }
+/* ── Badges de status (cor + símbolo + rótulo) ────────────────────────── */
+.badge {{
+    display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px;
+    font-size: 0.72rem; font-weight: 600; white-space: nowrap; border: 1px solid transparent;
+}}
+.badge .sym {{ font-weight: 700; }}
+.badge-conforme {{ background: var(--ok-bg);   color: var(--ok);   border-color: #A7F3D0; }}
+.badge-parcial  {{ background: var(--parc-bg); color: var(--parc); border-color: #DDD6FE; }}
+.badge-nao      {{ background: var(--nc-bg);   color: var(--nc);   border-color: #FECACA; }}
+.badge-indet    {{ background: var(--ind-bg);  color: var(--ind);  border-color: #FDE68A; }}
+.badge-na       {{ background: var(--na-bg);   color: var(--na);   border-color: var(--linha); }}
 
-/* ── Slider na sidebar ── */
-[data-testid="stSidebar"] [data-baseweb="slider"] { background: var(--border) !important; }
-[data-testid="stSidebar"] [role="slider"] {
-    background: var(--zk-green) !important;
-    width: 20px !important; height: 20px !important;
-    border: 3px solid #ffffff !important;
-    box-shadow: 0 0 0 2px var(--zk-green) !important;
-}
-[data-testid="stSidebar"] [data-testid="stSlider"] [data-baseweb="slider"] div[role="progressbar"] {
-    background: var(--zk-green) !important;
-}
-/* Ocultar o valor flutuante nativo (tooltip do thumb) */
-[data-testid="stSidebar"] [data-testid="stSlider"] [data-baseweb="tooltip"],
-[data-testid="stSidebar"] [data-testid="stSlider"] div[data-testid="stTickBarMin"],
-[data-testid="stSidebar"] [data-testid="stSlider"] div[data-testid="stTickBarMax"] {
-    display: none !important;
-}
+/* ── Cards de métricas ────────────────────────────────────────────────── */
+.metric-row {{ display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; }}
+.metric-card {{
+    flex: 1; min-width: 120px; background: var(--surface); border: 1px solid var(--linha);
+    border-radius: var(--raio); padding: 1rem 1.1rem; box-shadow: var(--sombra);
+}}
+.metric-num {{ font-family: var(--display); font-size: 1.9rem; font-weight: 600; line-height: 1; margin-bottom: 0.35rem; color: var(--deep); }}
+.metric-label {{ font-size: 0.72rem; color: var(--muted); font-weight: 500; }}
+.c-green  {{ color: var(--ok)   !important; }}
+.c-purple {{ color: var(--parc) !important; }}
+.c-red    {{ color: var(--nc)   !important; }}
+.c-amber  {{ color: var(--ind)  !important; }}
+.c-blue   {{ color: var(--azul) !important; }}
+.c-muted  {{ color: var(--muted)!important; }}
 
-/* ════════════════════════════════════
-   HERO — fundo BRANCO, borda escura
-   ════════════════════════════════════ */
-.hero-block {
-    background: #ffffff;
-    border: 2px solid var(--zk-slate);
-    border-radius: 10px;
-    padding: 1.5rem 2rem;
-    margin-bottom: 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-}
-.hero-title {
-    font-family: var(--font);
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: var(--zk-slate) !important;
-    margin: 0 0 0.2rem 0;
-}
-.hero-sub {
-    font-family: var(--font);
-    font-size: 0.72rem;
-    color: var(--muted) !important;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-}
+/* ── Tabela de resultados ─────────────────────────────────────────────── */
+.result-table {{
+    width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.82rem;
+    background: var(--surface); border: 1px solid var(--linha); border-radius: var(--raio); overflow: hidden;
+}}
+.result-table th {{
+    font-size: 0.68rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 10px 12px; text-align: left; background: var(--suave); border-bottom: 1px solid var(--linha);
+}}
+.result-table td {{ padding: 10px 12px; border-bottom: 1px solid var(--linha); vertical-align: top; color: var(--deep); }}
+.result-table tr:last-child td {{ border-bottom: none; }}
+.result-table tr:hover td {{ background: var(--canvas); }}
+.td-mono   {{ font-family: var(--mono); font-size: 0.76rem; color: var(--texto-2); white-space: nowrap; }}
+.td-muted  {{ color: var(--muted) !important; }}
+.td-strong {{ font-weight: 500; }}
+.td-rec    {{ color: var(--nc) !important; font-size: 0.8rem; }}
+.td-item   {{ font-family: var(--mono); font-size: 0.76rem; color: var(--azul); font-weight: 500; white-space: nowrap; }}
 
-/* ── Section titles ── */
-.section-title {
-    font-family: var(--font);
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: var(--zk-blue) !important;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    margin-bottom: 0.85rem;
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-}
+/* ── GlobalId ─────────────────────────────────────────────────────────── */
+.globalid {{
+    font-family: var(--mono); font-size: 0.68rem; background: var(--suave); border: 1px solid var(--linha);
+    border-radius: 6px; padding: 2px 6px; color: var(--texto-2); display: inline-block;
+}}
 
-/* ── Status badges ── */
-.badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-family: var(--font); font-size: 0.72rem; font-weight: 600; }
-.badge-conforme { background: rgba(26,184,122,0.12); color: #0a7a4e !important; border: 1px solid rgba(26,184,122,0.35); }
-.badge-parcial  { background: rgba(124,58,196,0.12);  color: #5b21a6 !important; border: 1px solid rgba(124,58,196,0.35); }
-.badge-nao      { background: rgba(224,60,60,0.10);  color: #9b1c1c !important; border: 1px solid rgba(224,60,60,0.35); }
-.badge-indet    { background: rgba(232,146,10,0.12); color: #7a4500 !important; border: 1px solid rgba(232,146,10,0.35); }
-.badge-na       { background: rgba(77,83,99,0.08);   color: #4d5363 !important; border: 1px solid rgba(77,83,99,0.2); }
+/* ── Caixas de mensagem ───────────────────────────────────────────────── */
+.info-box {{
+    background: #EFF6FF; border: 1px solid #DBEAFE; border-radius: var(--raio);
+    padding: 0.8rem 1rem; font-size: 0.84rem; color: #1E3A8A; margin: 0.75rem 0;
+}}
+.warn-box {{
+    background: var(--ind-bg); border: 1px solid #FDE68A; border-radius: var(--raio);
+    padding: 0.8rem 1rem; font-size: 0.84rem; color: #78350F; margin: 0.75rem 0;
+}}
+.empty-state {{ text-align: center; padding: 4rem 2rem; }}
+.empty-state .es-title {{ font-family: var(--display); font-size: 1.15rem; font-weight: 600; color: var(--deep); }}
+.empty-state .es-sub {{ font-size: 0.85rem; color: var(--muted); margin-top: 0.4rem; }}
 
-/* ── Result table ── */
-.result-table { width: 100%; border-collapse: collapse; font-size: 0.81rem; }
-.result-table th {
-    font-family: var(--font); font-size: 0.67rem; color: #ffffff !important;
-    text-transform: uppercase; letter-spacing: 0.08em;
-    border-bottom: 2px solid var(--zk-blue); padding: 9px 12px;
-    text-align: left; background: var(--zk-slate);
-}
-.result-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--text) !important; }
-.result-table tr:hover td { background: rgba(68,205,148,0.05); }
+/* ── Card de arquivo carregado ────────────────────────────────────────── */
+.file-card {{
+    display: flex; align-items: center; gap: 0.6rem; background: var(--surface); border: 1px solid var(--linha);
+    border-radius: var(--raio); padding: 0.65rem 0.9rem; margin-top: 0.5rem; font-size: 0.85rem;
+}}
+.file-card .fc-ok {{ color: var(--ok); font-weight: 700; }}
+.file-card .fc-meta {{ font-family: var(--mono); font-size: 0.72rem; color: var(--muted); }}
 
-/* ── GlobalId chip ── */
-.globalid { font-family: var(--mono); font-size: 0.67rem; background: #eef1f8; border: 1px solid #c5cad8; border-radius: 4px; padding: 2px 6px; color: var(--zk-blue) !important; display: inline-block; }
+/* ── Stepper (passos da execução) ─────────────────────────────────────── */
+.stepper {{
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0.9rem 1.1rem;
+    background: var(--surface); border: 1px solid var(--linha); border-radius: var(--raio); margin-bottom: 1.25rem;
+}}
+.step {{ display: flex; align-items: center; gap: 8px; }}
+.step-dot {{
+    width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 700; flex-shrink: 0;
+}}
+.step-done   .step-dot {{ background: var(--deep); color: #fff; }}
+.step-active .step-dot {{ background: var(--azul); color: #fff; }}
+.step-pending .step-dot {{ background: var(--suave); color: var(--muted); border: 1px solid var(--linha); }}
+.step-label {{ font-size: 0.82rem; font-weight: 600; color: var(--deep); }}
+.step-pending .step-label {{ color: var(--muted); }}
+.step-sub {{ font-size: 0.68rem; color: var(--muted); }}
+.step-arrow {{ color: var(--linha); font-size: 0.9rem; }}
 
-/* ── Metric cards ── */
-.metric-row { display: flex; gap: 0.85rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-.metric-card { flex: 1; min-width: 110px; background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--zk-green); border-radius: 8px; padding: 1rem; text-align: center; }
-.metric-num { font-family: var(--font); font-size: 2rem; font-weight: 700; line-height: 1; margin-bottom: 0.2rem; }
-.metric-label { font-family: var(--font); font-size: 0.62rem; color: var(--muted) !important; text-transform: uppercase; letter-spacing: 0.08em; }
-.c-green { color: var(--success) !important; }
-.c-purple{ color: #7c3ac4 !important; }
-.c-red   { color: var(--danger)  !important; }
-.c-amber { color: var(--warn)    !important; }
-.c-blue  { color: var(--zk-blue) !important; }
-.c-muted { color: var(--muted)   !important; }
+/* ── Log técnico ──────────────────────────────────────────────────────── */
+.terminal {{
+    background: var(--deep); border-radius: var(--raio); padding: 1rem 1.25rem; font-family: var(--mono);
+    font-size: 0.74rem; color: #CBD5E1; max-height: 280px; overflow-y: auto; line-height: 1.7; white-space: pre-wrap;
+}}
 
-/* ── Terminal ── */
-.terminal {
-    background: var(--zk-slate); border: 1px solid #3a3f4f; border-radius: 8px;
-    padding: 1rem 1.25rem; font-family: var(--mono); font-size: 0.74rem;
-    color: var(--zk-green) !important; max-height: 280px; overflow-y: auto; line-height: 1.7;
-}
+/* ── Inputs ───────────────────────────────────────────────────────────── */
+.stTextInput input, .stTextArea textarea {{ border-radius: 8px !important; font-size: 0.85rem !important; }}
 
-/* ── Inputs main content ── */
-.stTextInput input, .stTextArea textarea {
-    background: var(--surface) !important; border: 1px solid var(--border) !important;
-    color: var(--text) !important; border-radius: 6px !important;
-    font-family: var(--font) !important; font-size: 0.82rem !important;
-}
-.stTextInput input:focus, .stTextArea textarea:focus {
-    border-color: var(--zk-green) !important;
-    box-shadow: 0 0 0 2px rgba(68,205,148,0.2) !important;
-}
+/* ── Upload ───────────────────────────────────────────────────────────── */
+[data-testid="stFileUploader"] section,
+[data-testid="stFileUploaderDropzone"] {{
+    background: var(--surface) !important; border: 1.5px dashed #CBD5E1 !important; border-radius: 12px !important;
+    padding: 1.6rem !important; transition: border-color 0.15s ease, background-color 0.15s ease;
+}}
+[data-testid="stFileUploader"] section:hover,
+[data-testid="stFileUploaderDropzone"]:hover {{ border-color: var(--azul) !important; background: #F8FAFF !important; }}
 
-/* Selectbox main content */
-[data-testid="stMain"] [data-baseweb="select"] > div { background: var(--surface) !important; border: 1px solid var(--border) !important; color: var(--text) !important; }
-[data-testid="stMain"] [data-baseweb="select"] span { color: var(--text) !important; }
+/* ── Botões ───────────────────────────────────────────────────────────── */
+.stButton button {{
+    background: var(--azul) !important; color: #FFFFFF !important; font-weight: 600 !important;
+    font-size: 0.9rem !important; border: none !important; border-radius: 8px !important;
+    padding: 0.6rem 1.5rem !important; box-shadow: var(--sombra) !important;
+    transition: background-color 0.15s ease !important;
+}}
+.stButton button p {{ color: #FFFFFF !important; }}
+.stButton button:hover {{ background: var(--azul-h) !important; }}
+.stButton button:focus-visible {{ outline: 2px solid var(--azul) !important; outline-offset: 2px !important; }}
+.stButton button:disabled {{ background: var(--suave) !important; color: var(--muted) !important; box-shadow: none !important; }}
+.stButton button:disabled p {{ color: var(--muted) !important; }}
 
-/* ── File uploader — borda verde chamativa ── */
-[data-testid="stFileUploader"] { background: #f0fdf8 !important; border: 2px dashed var(--zk-green) !important; border-radius: 8px !important; }
-[data-testid="stFileUploader"]:hover { background: #e6faf3 !important; border-color: var(--zk-blue) !important; }
-[data-testid="stFileUploader"] span, [data-testid="stFileUploader"] p { color: var(--text) !important; }
+[data-testid="stDownloadButton"] button {{
+    background: var(--surface) !important; color: var(--deep) !important; border: 1px solid var(--linha) !important;
+    border-radius: 8px !important; font-weight: 500 !important; box-shadow: var(--sombra) !important;
+    transition: border-color 0.15s ease !important;
+}}
+[data-testid="stDownloadButton"] button:hover {{ border-color: var(--azul) !important; color: var(--azul) !important; }}
 
-/* ── Botão principal — verde chamativo ── */
-.stButton button {
-    background: var(--zk-green) !important; color: rgb(20,60,40) !important;
-    font-family: var(--font) !important; font-weight: 700 !important; font-size: 0.9rem !important;
-    border: none !important; border-radius: 6px !important; padding: 0.65rem 1.75rem !important;
-    transition: all 0.2s !important; letter-spacing: 0.02em !important;
-}
-.stButton button:hover { background: var(--zk-blue) !important; color: #ffffff !important; transform: translateY(-1px); box-shadow: 0 4px 18px rgba(28,96,241,0.3) !important; }
-.stButton button:disabled { background: var(--border) !important; color: var(--muted) !important; transform: none !important; }
+/* ── Abas ─────────────────────────────────────────────────────────────── */
+[data-testid="stTabs"] [role="tab"] {{ font-size: 0.86rem !important; color: var(--muted) !important; }}
+[data-testid="stTabs"] [role="tab"] p {{ font-weight: 500; }}
+[data-testid="stTabs"] [role="tab"][aria-selected="true"],
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] p {{ color: var(--deep) !important; }}
 
-/* ── Download buttons ── */
-[data-testid="stDownloadButton"] button { background: var(--surface) !important; color: var(--zk-blue) !important; border: 1.5px solid var(--zk-blue) !important; font-family: var(--font) !important; font-weight: 600 !important; }
-[data-testid="stDownloadButton"] button:hover { background: var(--zk-blue) !important; color: #ffffff !important; }
+/* ── Expander ─────────────────────────────────────────────────────────── */
+[data-testid="stExpander"] details {{ border: 1px solid var(--linha) !important; border-radius: var(--raio) !important; background: var(--surface); }}
 
-/* ── Expander ── */
-.streamlit-expanderHeader { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 6px !important; font-family: var(--font) !important; font-size: 0.82rem !important; color: var(--text) !important; }
+/* ── Rodapé ───────────────────────────────────────────────────────────── */
+.footer-app {{ border-top: 1px solid var(--linha); padding: 1rem 0; margin-top: 2rem; font-size: 0.72rem; color: var(--muted); }}
 
-/* ── Tabs ── */
-[data-testid="stTabs"] [role="tab"] { font-family: var(--font) !important; font-size: 0.82rem !important; color: var(--muted) !important; }
-[data-testid="stTabs"] [role="tab"][aria-selected="true"] { color: var(--zk-blue) !important; border-bottom-color: var(--zk-blue) !important; }
+/* ── Chrome do Streamlit ──────────────────────────────────────────────── */
+#MainMenu, footer {{ visibility: hidden; }}
+header[data-testid="stHeader"] {{ background: transparent; }}
 
-/* ── Info / warning boxes ── */
-.info-box { background: rgba(28,96,241,0.06); border-left: 3px solid var(--zk-blue); border-radius: 0 6px 6px 0; padding: 0.75rem 1rem; font-size: 0.82rem; color: #1a3fa8 !important; margin: 0.75rem 0; }
-.warn-box { background: rgba(232,146,10,0.08); border-left: 3px solid var(--warn); border-radius: 0 6px 6px 0; padding: 0.75rem 1rem; font-size: 0.82rem; color: #7a4500 !important; margin: 0.75rem 0; }
-
-/* ── Divider ── */
-hr { border-color: var(--border) !important; }
-
-/* ── Pulse ── */
-@keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(68,205,148,0.4); } 50% { box-shadow: 0 0 0 8px rgba(68,205,148,0); } }
-
-/* ── Botão CTA — verde vibrante com sombra quando habilitado ── */
-.stButton button {
-    background: var(--zk-green) !important; color: rgb(20,60,40) !important;
-    font-family: var(--font) !important; font-weight: 700 !important; font-size: 0.9rem !important;
-    border: none !important; border-radius: 6px !important; padding: 0.65rem 1.75rem !important;
-    transition: all 0.2s !important; letter-spacing: 0.02em !important;
-    box-shadow: 0 2px 8px rgba(68,205,148,0.35) !important;
-}
-.stButton button:hover {
-    background: var(--zk-blue) !important; color: #ffffff !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 6px 20px rgba(28,96,241,0.35) !important;
-}
-.stButton button:disabled {
-    background: #e5e7eb !important; color: #9ca3af !important;
-    transform: none !important; box-shadow: none !important;
-}
-
-/* ════════════════════════════════════
-   RODAPÉ — fundo BRANCO, borda escura
-   ════════════════════════════════════ */
-.footer-app {
-    background: #ffffff;
-    border: 2px solid var(--zk-slate);
-    border-radius: 8px;
-    padding: 1rem 1.5rem;
-    margin-top: 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-}
-.footer-app-tfm { color: var(--zk-green) !important; font-weight: 700; font-size: 0.72rem; margin-bottom: 0.15rem; }
-.footer-app-autores { color: var(--zk-slate) !important; font-size: 0.65rem; }
-
-/* ── Ocultar chrome do Streamlit ── */
-#MainMenu, footer, header { visibility: hidden; }
-
-/* ── Manter sidebar sempre visível ── */
-[data-testid="collapsedControl"] { display: none !important; }
-section[data-testid="stSidebar"] { min-width: 240px !important; transform: none !important; }
+/* ── Movimento reduzido (acessibilidade) ──────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {{
+    * {{ transition: none !important; animation: none !important; }}
+}}
 </style>
 """
 
+# Nome antigo mantido para compatibilidade
+CSS_ZIGURAT = CSS
+
 
 def aplicar_estilo() -> None:
-    """Injeta o CSS da identidade visual Zigurat na página."""
-    st.markdown(CSS_ZIGURAT, unsafe_allow_html=True)
+    """Injeta o CSS da identidade visual na página."""
+    st.markdown(CSS, unsafe_allow_html=True)
+
+
+_CLASSE_BADGE = {
+    "Conforme": "badge-conforme",
+    "Parcial": "badge-parcial",
+    "Não Conforme": "badge-nao",
+    "Indeterminado": "badge-indet",
+    "N/A": "badge-na",
+}
 
 
 def status_badge(status: str) -> str:
-    badges = {
-        "Conforme":      '<span class="badge badge-conforme">✅ Conforme</span>',
-        "Parcial":       '<span class="badge badge-parcial">▲ Parcial</span>',
-        "Não Conforme":  '<span class="badge badge-nao">❌ Não Conforme</span>',
-        "Indeterminado": '<span class="badge badge-indet">⚠️ Indeterminado</span>',
-        "N/A":           '<span class="badge badge-na">— N/A</span>',
-    }
-    return badges[classificar_status(status)]
+    """Badge de status: cor + símbolo + rótulo."""
+    s = classificar_status(status)
+    return (f'<span class="badge {_CLASSE_BADGE[s]}">'
+            f'<span class="sym" aria-hidden="true">{SIMBOLO_STATUS[s]}</span>{s}</span>')
 
+
+def rotulo_status(status: str) -> str:
+    """Versão em texto puro (para st.dataframe): '✓ Conforme'."""
+    s = classificar_status(status)
+    return f"{SIMBOLO_STATUS[s]} {s}"
