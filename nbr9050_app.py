@@ -32,6 +32,9 @@ st.set_page_config(
 
 # ── Módulos do projeto ───────────────────────────────────────────────────────
 from ui_style import aplicar_estilo, status_badge, logo_html
+from ui_componentes import (kpi, linha_kpis, conformidade_cards_html, como_calculamos_md,
+                            analise_geral_html, SIMBOLO_STATUS, SIGNIFICADO_STATUS, ROTULO_STATUS_PLURAL,
+                            ORIGEM_DADO, legenda_origem_html)
 from extracao import extract_ifc_elements
 from regras import obter_regras_lista
 from llm_auditor import build_audit_prompt, call_anthropic, call_gemini
@@ -117,11 +120,11 @@ with st.sidebar:
       Sergio Rosenboim<br>
       Viviane Nishizaki Suzuke<br>
       William Felipe dos Santos Moura
-      <div style="margin-top:0.6rem">
-        <img src="https://www.e-zigurat.com/images/logo.svg"
-             style="height:16px;opacity:0.7;display:block;margin-bottom:0.3rem" alt="Zigurat Institute of Technology" />
-        Master IA para AEC · Zigurat Institute of Technology
-      </div>
+    </div>
+    <div class="sb-instituicao">
+      <img src="https://www.e-zigurat.com/images/logo.svg" alt="Zigurat Institute of Technology" />
+      Master Internacional em IA para Arquitetura e Construção<br>
+      Zigurat Institute of Technology
     </div>
     """, unsafe_allow_html=True)
 
@@ -133,9 +136,7 @@ st.markdown("""
 <div class="hero-block">
   <div>
     <div class="hero-title">Auditoria BIM</div>
-    <div class="hero-sub">
-      Acessibilidade <span class="pill pill-azul">ABNT NBR 9050:2020</span>
-    </div>
+    <div class="hero-sub">Acessibilidade &nbsp;·&nbsp; ABNT NBR 9050:2020</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -381,35 +382,40 @@ with tab_resultado:
         pct     = resumo.get("percentual_conformidade", "—")
         pct_ver = resumo.get("percentual_sobre_verificaveis", "—")
 
-        st.markdown(f"""
-        <div class="metric-row">
-          <div class="metric-card"><div class="metric-num c-blue">{total}</div><div class="metric-label">Total</div></div>
-          <div class="metric-card"><div class="metric-num c-green">{conf}</div><div class="metric-label">Conformes</div></div>
-          <div class="metric-card"><div class="metric-num c-purple">{parc}</div><div class="metric-label">Parciais</div></div>
-          <div class="metric-card"><div class="metric-num c-red">{nconf}</div><div class="metric-label">Não Conformes</div></div>
-          <div class="metric-card"><div class="metric-num c-amber">{indet}</div><div class="metric-label">Indeterminados</div></div>
-          <div class="metric-card"><div class="metric-num c-muted">{na}</div><div class="metric-label">N/A</div></div>
-          <div class="metric-card"><div class="metric-num c-green">{pct}</div><div class="metric-label">Conformidade (bruta)</div></div>
-          <div class="metric-card"><div class="metric-num c-blue">{pct_ver}</div><div class="metric-label">Conformidade (s/ N/A)</div></div>
-        </div>
-        """, unsafe_allow_html=True)
+        # ── 1. Conformidade (duas medidas, cada uma explicada) ──────────────
+        st.markdown('<div class="section-title">Conformidade do modelo</div>', unsafe_allow_html=True)
+        st.markdown(conformidade_cards_html(resumo), unsafe_allow_html=True)
+        with st.popover("ⓘ Como calculamos a conformidade?"):
+            st.markdown(como_calculamos_md(resumo))
 
-        # Observações
-        obs = resultado.get("observacoes_gerais", "")
-        if obs:
-            st.markdown(f'<div class="info-box"><strong>Análise geral</strong><br>{obs}</div>', unsafe_allow_html=True)
+        # ── 2. Contagem por status ────────────────────────────────────────
+        st.markdown(f'<div class="section-title">Itens da norma por resultado '
+                    f'<span class="section-sub">{total} itens avaliados</span></div>',
+                    unsafe_allow_html=True)
+        contagem = [("Conforme", conf, "c-green"), ("Parcial", parc, "c-purple"),
+                    ("Não Conforme", nconf, "c-red"), ("Indeterminado", indet, "c-amber"),
+                    ("N/A", na, "c-muted")]
+        st.markdown(linha_kpis([
+            kpi(f'<span class="{cor}" aria-hidden="true" style="font-size:1.1rem;margin-right:6px">'
+                f'{SIMBOLO_STATUS[s_]}</span>{n_}',
+                ROTULO_STATUS_PLURAL[s_],
+                SIGNIFICADO_STATUS[s_].capitalize())
+            for s_, n_, cor in contagem
+        ]), unsafe_allow_html=True)
 
-        st.markdown("---")
+        # ── 3. Análise geral (estruturada) ────────────────────────────────
+        st.markdown('<div class="section-title">Análise geral</div>', unsafe_allow_html=True)
+        st.markdown(analise_geral_html(resultado), unsafe_allow_html=True)
 
-        # GlobalId explanation
-        st.markdown("""
-        <div class="info-box">
-          <strong>Sobre o GlobalId</strong><br>
-          O relatório inclui o <code>GlobalId</code> de cada elemento IFC verificado — é o identificador único do elemento no modelo, como um "CPF" do componente BIM.<br>
-          <strong>Como usar no Revit:</strong> aba <em>Manage → Inquiry → IFC GUID</em> para localizar o elemento diretamente.
-          No <strong>BIMcollab Zoom</strong>, <strong>Solibri</strong> ou <strong>usBIM viewer</strong> (gratuitos), cole o GlobalId no campo de busca para selecionar o elemento instantaneamente.
-        </div>
-        """, unsafe_allow_html=True)
+        # GlobalId explanation (recolhido para não poluir a tela)
+        with st.expander("Como localizar um elemento no Revit ou no visualizador IFC (GlobalId)"):
+            st.markdown("""
+            <div style="font-size:0.85rem;line-height:1.6">
+              O relatório inclui o <code>GlobalId</code> de cada elemento IFC verificado — é o identificador único do elemento no modelo, como um "CPF" do componente BIM.<br>
+              <strong>Como usar no Revit:</strong> aba <em>Manage → Inquiry → IFC GUID</em> para localizar o elemento diretamente.
+              No <strong>BIMcollab Zoom</strong>, <strong>Solibri</strong> ou <strong>usBIM viewer</strong> (gratuitos), cole o GlobalId no campo de busca para selecionar o elemento instantaneamente.
+            </div>
+            """, unsafe_allow_html=True)
 
         # Filters
         col_f1, col_f2, col_f3 = st.columns(3)
@@ -558,16 +564,19 @@ with tab_ajuda:
           na raiz do repositório — não é preciso enviar planilha nenhuma.
 
         **3. Execute a auditoria**
-        - Clique em **Executar Auditoria**
-        - Acompanhe o log em tempo real
+        - Clique em **Executar auditoria**
+        - Acompanhe as etapas em tempo real
         - Aguarde 30–90 segundos (depende do modelo e tamanho do IFC)
         """)
 
     with col_b:
         st.markdown("""
         **4. Analise os resultados**
+        - **Resultados:** conformidade do modelo e lista de itens da norma
+        - **Dashboard:** visão geral, onde estão os problemas e lista de ação
+        - **Modelo 3D:** elementos coloridos pelo resultado
+        - **Elementos:** cada elemento medido e a comparação entre IA e cálculo
         - Filtre por status, categoria ou GlobalId
-        - O **GlobalId** identifica cada elemento no IFC
 
         **5. Como usar o GlobalId no Revit**
         - No Revit: `Manage → Select by ID` → cole o GlobalId
@@ -580,6 +589,27 @@ with tab_ajuda:
         - **XLSX**: checklist com formatação por status (conforme/não conforme)
         - **JSON**: dados brutos para integração com outros sistemas
         """)
+
+    st.markdown("---")
+    st.markdown('<div class="section-title">Termos usados no app</div>', unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="legenda">
+      <div class="leg-row"><span class="leg-sym">✓ ◐ ✕</span><div><strong>Resultado de cada item:</strong>
+        ✓ conforme ({SIGNIFICADO_STATUS["Conforme"]}) · ◐ parcial ({SIGNIFICADO_STATUS["Parcial"]}) ·
+        ✕ não conforme ({SIGNIFICADO_STATUS["Não Conforme"]}).</div></div>
+      <div class="leg-row"><span class="leg-sym">? —</span><div><strong>Indeterminado:</strong> {SIGNIFICADO_STATUS["Indeterminado"]}.
+        <strong>N/A:</strong> {SIGNIFICADO_STATUS["N/A"]}.</div></div>
+      <div class="leg-row"><span class="leg-sym">%</span><div><strong>Conformidade geral (bruta)</strong> considera todos os itens avaliados;
+        <strong>conformidade dos itens aplicáveis (sem N/A)</strong> considera só os itens que existem no modelo.
+        Itens parciais contam como meio ponto.</div></div>
+      <div class="leg-row"><span class="leg-sym">IA×</span><div><strong>Parecer da IA × resultado do cálculo:</strong> cada item é checado
+        de duas formas independentes — a IA (LLM) lê os dados do modelo e um cálculo (Python) mede os elementos.
+        Quando discordam, vale o cálculo, e a divergência fica registrada na aba Elementos.</div></div>
+      <div class="leg-row"><span class="leg-sym">GUID</span><div><strong>GlobalId:</strong> identificador único do elemento no IFC,
+        como um "CPF" do componente. Serve para encontrá-lo no Revit ou num visualizador IFC.</div></div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown(legenda_origem_html(), unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("""
