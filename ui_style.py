@@ -164,6 +164,8 @@ section[data-testid="stSidebar"] {{ min-width: 248px !important; max-width: 248p
 .sb-hint {{ font-size: 0.7rem; color: var(--muted); margin: -0.2rem 0 0.35rem 0; }}
 .sb-footer {{ font-size: 0.68rem; color: var(--muted); line-height: 1.7; padding-top: 0.5rem; }}
 .sb-footer strong {{ color: var(--texto-2); font-weight: 600; }}
+.sb-instituicao {{ margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--linha); font-size: 0.66rem; color: var(--muted); line-height: 1.5; }}
+.sb-instituicao img {{ height: 18px; opacity: 0.8; display: block; margin-bottom: 0.45rem; }}
 
 /* ── Marca ────────────────────────────────────────────────────────────── */
 .brand {{ padding: 0.25rem 0 1rem 0; border-bottom: 1px solid var(--linha); margin-bottom: 0.25rem; }}
@@ -175,8 +177,9 @@ section[data-testid="stSidebar"] {{ min-width: 248px !important; max-width: 248p
 
 /* ── Cabeçalho da página (hero) ───────────────────────────────────────── */
 .hero-block {{ display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }}
-.hero-title {{ font-family: var(--display); font-size: 1.9rem; font-weight: 600; color: var(--deep); line-height: 1.1; letter-spacing: -0.02em; }}
-.hero-sub {{ margin-top: 0.35rem; font-size: 0.9rem; color: var(--texto-2); display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }}
+/* mesma tipografia do wordmark "access" (.brand-word) e da tagline (.brand-tagline) */
+.hero-title {{ font-family: var(--display); font-size: 2.1rem; font-weight: 600; color: var(--deep); line-height: 1; letter-spacing: -0.03em; }}
+.hero-sub {{ margin-top: 0.6rem; font-size: 0.66rem; color: var(--muted); letter-spacing: 0.18em; text-transform: uppercase; }}
 .pill {{
     display: inline-flex; align-items: center; gap: 4px; font-size: 0.7rem; font-weight: 600;
     padding: 2px 9px; border-radius: 999px; background: var(--suave); color: var(--texto-2); border: 1px solid var(--linha);
@@ -206,11 +209,77 @@ section[data-testid="stSidebar"] {{ min-width: 248px !important; max-width: 248p
 /* ── Cards de métricas ────────────────────────────────────────────────── */
 .metric-row {{ display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; }}
 .metric-card {{
-    flex: 1; min-width: 120px; background: var(--surface); border: 1px solid var(--linha);
-    border-radius: var(--raio); padding: 1rem 1.1rem; box-shadow: var(--sombra);
+    flex: 1; min-width: 150px; background: var(--surface); border: 1px solid var(--linha);
+    border-radius: 12px; padding: 1rem 1.15rem; box-shadow: var(--sombra);
 }}
-.metric-num {{ font-family: var(--display); font-size: 1.9rem; font-weight: 600; line-height: 1; margin-bottom: 0.35rem; color: var(--deep); }}
-.metric-label {{ font-size: 0.72rem; color: var(--muted); font-weight: 500; }}
+.metric-label {{ font-size: 0.78rem; color: var(--texto-2); font-weight: 500; margin-bottom: 0.55rem; }}
+.metric-num {{ font-family: var(--display); font-size: 1.95rem; font-weight: 600; line-height: 1; color: var(--deep); white-space: nowrap; }}
+.metric-ctx {{ font-size: 0.72rem; color: var(--muted); margin-top: 0.5rem; line-height: 1.4; }}
+.metric-ctx strong {{ color: var(--deep); font-weight: 600; }}
+.tec {{ color: var(--muted); font-weight: 400; }}
+.mini-seg {{ display: flex; gap: 2px; height: 6px; margin-top: 0.75rem; border-radius: 99px; overflow: hidden; background: var(--suave); }}
+.mini-seg span {{ display: block; height: 100%; }}
+
+/* ── Conformidade (Resultados) ────────────────────────────────────────── */
+.conf-row {{ display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }}
+@media (max-width: 760px) {{ .conf-row {{ grid-template-columns: 1fr; }} }}
+.conf-card {{ background: var(--surface); border: 1px solid var(--linha); border-radius: 12px; padding: 1.1rem 1.25rem; box-shadow: var(--sombra); }}
+.conf-num {{ font-family: var(--display); font-size: 2.6rem; font-weight: 600; color: var(--deep); line-height: 1; }}
+.conf-exp {{ font-size: 0.8rem; color: var(--texto-2); margin-top: 0.6rem; line-height: 1.5; }}
+.conf-nota {{ font-size: 0.75rem; color: var(--muted); margin: 0.5rem 0 1.25rem 0.1rem; }}
+
+/* ── Barra segmentada + lista ─────────────────────────────────────────── */
+.seg-head {{ display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--texto-2); margin-bottom: 0.5rem; }}
+.seg-head strong {{ color: var(--deep); font-weight: 600; }}
+.segbar {{ display: flex; gap: 4px; height: 20px; margin-bottom: 0.9rem; }}
+.segbar .seg {{ display: block; border-radius: 6px; min-width: 6px; }}
+.seg-row {{ display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.45rem 0; border-bottom: 1px dashed var(--linha); }}
+.seg-row:last-child {{ border-bottom: none; }}
+.seg-zero {{ opacity: 0.45; }}
+.seg-dot {{ width: 18px; height: 18px; border-radius: 5px; color: #fff; font-size: 0.65rem; font-weight: 700;
+            display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }}
+.seg-txt {{ flex: 1; min-width: 0; }}
+.seg-lbl {{ font-size: 0.84rem; color: var(--deep); font-weight: 500; }}
+.seg-det {{ font-size: 0.72rem; color: var(--muted); margin-top: 1px; line-height: 1.4; }}
+.seg-qtd {{ font-size: 0.84rem; font-weight: 600; color: var(--deep); min-width: 2.2rem; text-align: right; }}
+.seg-pct {{ font-size: 0.8rem; color: var(--muted); min-width: 3.2rem; text-align: right; }}
+
+/* ── Legenda (origem do dado) ─────────────────────────────────────────── */
+.legenda {{ background: var(--surface); border: 1px solid var(--linha); border-radius: 12px; padding: 0.9rem 1.1rem; margin: 0.75rem 0 1.25rem 0; }}
+.leg-title {{ font-family: var(--display); font-weight: 600; font-size: 0.95rem; color: var(--deep); margin-bottom: 0.5rem; }}
+.leg-row {{ display: flex; gap: 0.6rem; font-size: 0.82rem; color: var(--texto-2); padding: 0.2rem 0; line-height: 1.5; }}
+.leg-row strong {{ color: var(--deep); }}
+.leg-sym {{ font-family: var(--mono); color: var(--azul); letter-spacing: 1px; flex-shrink: 0; min-width: 3.4rem; white-space: nowrap; }}
+.leg-nota {{ font-size: 0.72rem; color: var(--muted); margin-top: 0.5rem; }}
+.passo-a-passo {{ font-size: 0.85rem; color: var(--texto-2); line-height: 1.6; margin: 0 0 1rem 0; }}
+.passo-a-passo strong {{ color: var(--deep); }}
+
+/* ── Análise geral estruturada ────────────────────────────────────────── */
+.analise {{ background: var(--surface); border: 1px solid var(--linha); border-radius: 12px; padding: 1.1rem 1.25rem; margin: 0.5rem 0 1.25rem 0; }}
+.an-manchete {{ font-family: var(--display); font-size: 1.15rem; color: var(--deep); padding-bottom: 0.8rem; margin-bottom: 0.4rem; border-bottom: 1px solid var(--linha); }}
+.an-manchete strong {{ font-weight: 600; }}
+.an-bloco {{ padding: 0.55rem 0; }}
+.an-tit {{ font-size: 0.84rem; font-weight: 600; color: var(--deep); display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; }}
+.an-sym {{ font-weight: 700; }}
+.an-qtd {{ font-size: 0.72rem; font-weight: 600; color: var(--muted); background: var(--suave); border-radius: 99px; padding: 0 7px; }}
+.an-dica {{ font-size: 0.75rem; font-weight: 400; color: var(--muted); }}
+.chips {{ display: flex; flex-wrap: wrap; gap: 6px; margin-top: 0.4rem; }}
+.chip {{ font-size: 0.74rem; color: var(--texto-2); background: var(--suave); border: 1px solid var(--linha); border-radius: 99px; padding: 2px 9px; white-space: nowrap; }}
+.an-corr {{ margin-top: 0.5rem; padding-top: 0.8rem; border-top: 1px solid var(--linha); }}
+.corr-row {{ display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; padding: 0.25rem 0; font-size: 0.78rem; }}
+.corr-de {{ color: var(--muted); text-decoration: line-through; }}
+.corr-seta {{ color: var(--muted); }}
+.corr-para {{ color: var(--deep); font-weight: 600; }}
+
+/* ── Containers com borda (st.container(border=True)) viram cards ─────── */
+[data-testid="stVerticalBlockBorderWrapper"]:has(> div > [data-testid="stVerticalBlock"]) {{
+    background: var(--surface); border-color: var(--linha) !important; border-radius: 12px !important; box-shadow: var(--sombra);
+}}
+.card-tit {{ font-family: var(--display); font-size: 1.02rem; font-weight: 600; color: var(--deep); margin-bottom: 0.15rem; }}
+.card-sub {{ font-size: 0.75rem; color: var(--muted); margin-bottom: 0.8rem; }}
+.resumo-lado {{ display: flex; flex-direction: column; gap: 1.1rem; padding-top: 0.4rem; }}
+.resumo-lado .rl-num {{ font-family: var(--display); font-size: 1.8rem; font-weight: 600; color: var(--deep); line-height: 1; }}
+.resumo-lado .rl-lbl {{ font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; line-height: 1.35; }}
 .c-green  {{ color: var(--ok)   !important; }}
 .c-purple {{ color: var(--parc) !important; }}
 .c-red    {{ color: var(--nc)   !important; }}
