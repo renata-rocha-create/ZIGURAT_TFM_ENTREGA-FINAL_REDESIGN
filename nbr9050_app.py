@@ -20,15 +20,18 @@ import tempfile
 from datetime import datetime
 
 # ── Page config (precisa ser o PRIMEIRO comando Streamlit) ───────────────────
+_DIR = os.path.dirname(os.path.abspath(__file__))
+_FAVICON = os.path.join(_DIR, "assets", "favicon.png")
+
 st.set_page_config(
-    page_title="Auditor NBR 9050 — BIM",
-    page_icon="♿",
+    page_title="access Ai · Auditoria BIM NBR 9050",
+    page_icon=_FAVICON if os.path.exists(_FAVICON) else "♿",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # ── Módulos do projeto ───────────────────────────────────────────────────────
-from ui_style import aplicar_estilo, status_badge
+from ui_style import aplicar_estilo, status_badge, logo_html
 from extracao import extract_ifc_elements
 from regras import obter_regras_lista
 from llm_auditor import build_audit_prompt, call_anthropic, call_gemini
@@ -63,50 +66,21 @@ for k, v in {
 # SIDEBAR
 # ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown("""
-    <div style="padding:1rem 0 1.5rem 0;border-bottom:2px solid rgb(68,205,148);margin-bottom:1rem">
-      <img src="https://www.e-zigurat.com/images/logo.svg"
-           style="height:28px;display:block;margin-bottom:0.75rem" alt="Zigurat" />
-      <div style="font-family:'Trebuchet MS',Trebuchet,sans-serif;font-size:1rem;font-weight:700;color:rgb(28,96,241)">
-        &#9855; NBR 9050 Auditor
-      </div>
-      <div style="font-family:'Trebuchet MS',Trebuchet,sans-serif;font-size:0.65rem;color:rgb(77,83,99);text-transform:uppercase;letter-spacing:0.1em">
-        BIM Accessibility Checker
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(logo_html(), unsafe_allow_html=True)
 
-    st.markdown("**🔑 Provedor de IA**")
-    st.markdown("""
-    <div style="font-family:'Trebuchet MS',sans-serif;font-size:0.7rem;font-weight:700;
-                color:rgb(77,83,99);text-transform:uppercase;letter-spacing:0.1em;
-                margin-bottom:0.5rem">
-      ⚙️ Configuração
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div class="sb-label">Configuração da IA</div>', unsafe_allow_html=True)
 
-    st.markdown("**Provedor de IA**")
-    provider = st.selectbox("Provedor", ["Anthropic (Claude)", "Google (Gemini)"], label_visibility="collapsed")
+    provider = st.selectbox("Provedor", ["Anthropic (Claude)", "Google (Gemini)"])
 
-    st.markdown("""
-    <div style="font-family:'Trebuchet MS',sans-serif;font-size:0.78rem;font-weight:600;
-                color:#1a1d26;margin-bottom:2px">
-      🔑 Chave API
-    </div>
-    <div style="font-family:'Trebuchet MS',sans-serif;font-size:0.65rem;color:#6b7280;
-                margin-bottom:4px">
-      Não armazenada • Apenas nesta sessão
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div class="sb-hint">Chave não armazenada · válida só nesta sessão</div>',
+                unsafe_allow_html=True)
     api_key = st.text_input(
         "Chave API",
         type="password",
         placeholder="sk-ant-..." if "Anthropic" in provider else "AIza...",
         help="Sua chave de API. Não é armazenada nem enviada a terceiros.",
-        label_visibility="collapsed"
     )
 
-    st.markdown("**🤖 Modelo LLM**")
     if "Anthropic" in provider:
         model_options = [
             "claude-haiku-4-5",
@@ -127,30 +101,26 @@ with st.sidebar:
         }
 
     selected_model = st.selectbox(
-        "Modelo",
+        "Modelo LLM",
         model_options,
         format_func=lambda x: model_labels.get(x, x),
-        label_visibility="collapsed"
     )
 
     temperature = 0.0  # Fixo em 0.0 — determinístico para auditoria normativa
 
     st.markdown("---")
     st.markdown("""
-    <div style="font-family:'Trebuchet MS',sans-serif;padding-top:0.25rem;line-height:1.8">
-      <div style="color:rgb(68,205,148);font-weight:700;font-size:0.72rem;
-                  margin-bottom:0.4rem;letter-spacing:0.05em">TFM | Grupo 1</div>
-      <div style="font-size:0.65rem;color:rgb(77,83,99)">
-        Kevin Dias Quintian<br>
-        Renata Gomes Rocha<br>
-        Sergio Rosenboim<br>
-        Viviane Nishizaki Suzuke<br>
-        William Felipe dos Santos Moura
-      </div>
-      <div style="margin-top:0.6rem;padding-top:0.5rem;
-                  border-top:1px solid var(--border);
-                  color:#9ca3af;font-size:0.6rem">
-        Master IA para AEC &middot; Zigurat Institute of Technology
+    <div class="sb-footer">
+      <strong>TFM · Grupo 1</strong><br>
+      Kevin Dias Quintian<br>
+      Renata Gomes Rocha<br>
+      Sergio Rosenboim<br>
+      Viviane Nishizaki Suzuke<br>
+      William Felipe dos Santos Moura
+      <div style="margin-top:0.6rem">
+        <img src="https://www.e-zigurat.com/images/logo.svg"
+             style="height:16px;opacity:0.7;display:block;margin-bottom:0.3rem" alt="Zigurat Institute of Technology" />
+        Master IA para AEC · Zigurat Institute of Technology
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -161,38 +131,28 @@ with st.sidebar:
 # ══════════════════════════════════════════════════════════════════════════════
 st.markdown("""
 <div class="hero-block">
-  <div class="hero-left">
-    <div class="hero-title">&#9855; Auditor de Acessibilidade BIM</div>
+  <div>
+    <div class="hero-title">Auditoria BIM</div>
     <div class="hero-sub">
-      Verificação Automatizada de Conformidade &nbsp;·&nbsp;
-      <strong style="color:rgba(255,255,255,0.85)">ABNT NBR 9050:2020</strong>
+      Acessibilidade <span class="pill pill-azul">ABNT NBR 9050:2020</span>
     </div>
   </div>
-  <img src="https://www.e-zigurat.com/images/logo.svg"
-       style="height:36px;flex-shrink:0"
-       alt="Zigurat Institute of Technology" />
 </div>
 """, unsafe_allow_html=True)
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 tab_upload, tab_resultado, tab_dashboard, tab_3d, tab_elementos, tab_ajuda = st.tabs(
-    ["📁 Arquivos & Execução", "📊 Resultados", "📈 Dashboard", "🧊 Modelo 3D",
-     "🔎 Por Elemento", "❓ Ajuda"])
+    ["Nova auditoria", "Resultados", "Dashboard", "Modelo 3D", "Elementos", "Ajuda"])
 
 # ─────────────────────────────────────────────
 with tab_upload:
 
     # ── Upload card — só o IFC (checklist agora vem sempre de nbr9050_rules.json) ──
     st.markdown("""
-    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
-      <div class="section-title" style="margin:0">📐 Modelo BIM</div>
-      <span style="background:rgb(28,96,241);color:#fff;font-size:0.6rem;
-                   font-weight:700;padding:2px 8px;border-radius:10px;
-                   letter-spacing:0.05em">OBRIGATÓRIO</span>
-    </div>
-    <div style="font-size:0.75rem;color:#6b7280;margin-bottom:0.5rem">
-      Arquivo IFC exportado do Revit, ArchiCAD ou Vectorworks.
-      Suporta schemas <strong>IFC2X3</strong> e <strong>IFC4</strong>.
+    <div class="section-title">Carregue seu modelo</div>
+    <div class="texto-suave" style="margin:-0.4rem 0 0.6rem 0">
+      Arquivo IFC exportado do Revit, ArchiCAD ou Vectorworks ·
+      <span class="pill">IFC2X3</span> <span class="pill">IFC4</span>
     </div>
     """, unsafe_allow_html=True)
     ifc_file = st.file_uploader(
@@ -203,20 +163,18 @@ with tab_upload:
     )
     if ifc_file:
         st.markdown(f"""
-        <div style="background:rgba(68,205,148,0.08);border:1px solid rgba(68,205,148,0.4);
-                    border-radius:6px;padding:0.6rem 0.85rem;margin-top:0.5rem;
-                    font-size:0.8rem">
-          ✅ <strong>{ifc_file.name}</strong>
-          <span style="font-family:'Courier New',monospace;color:#6b7280;font-size:0.72rem;margin-left:8px">
-            {ifc_file.size / 1024 / 1024:.1f} MB
-          </span>
+        <div class="file-card">
+          <span class="fc-ok" aria-hidden="true">✓</span>
+          <strong>{ifc_file.name}</strong>
+          <span class="fc-meta">{ifc_file.size / 1024 / 1024:.1f} MB</span>
         </div>""", unsafe_allow_html=True)
 
     n_regras = len(obter_regras_lista())
     st.markdown(f"""
-    <div style="background:#f4f6f9;border:1px solid #e5e7eb;border-radius:6px;
-                padding:0.6rem 0.85rem;margin-top:0.75rem;font-size:0.75rem;color:#6b7280">
-      📋 Checklist NBR carregado de <code>nbr9050_rules.json</code> — {n_regras} itens verificáveis.
+    <div class="section-title" style="margin-top:1.5rem">Auditoria</div>
+    <div class="file-card" style="margin-top:0">
+      <strong>NBR 9050:2020 · Acessibilidade</strong>
+      <span class="fc-meta">{n_regras} verificações · nbr9050_rules.json</span>
     </div>""", unsafe_allow_html=True)
 
     st.markdown("---")
@@ -226,44 +184,22 @@ with tab_upload:
     step2 = "done" if (api_key and ifc_file) else ("active" if api_key else "pending")
     step3 = "active" if (api_key and ifc_file) else "pending"
 
-    def step_dot(state, n):
-        colors = {"done": "rgb(68,205,148)", "active": "rgb(28,96,241)", "pending": "#d1d5de"}
-        text_c = {"done": "#fff", "active": "#fff", "pending": "#9ca3af"}
-        icon   = {"done": "✓", "active": str(n), "pending": str(n)}
-        pulse  = 'animation:pulse 1.5s infinite' if state == "active" else ""
-        return f"""<div style="width:28px;height:28px;border-radius:50%;
-                    background:{colors[state]};color:{text_c[state]};
-                    display:flex;align-items:center;justify-content:center;
-                    font-size:0.72rem;font-weight:700;flex-shrink:0;{pulse}">
-                    {icon[state]}</div>"""
-
-    def step_label(label, sublabel, state):
-        c = "rgb(28,96,241)" if state == "done" else ("#1a1d26" if state == "active" else "#9ca3af")
-        return f"""<div>
-          <div style="font-size:0.8rem;font-weight:700;color:{c}">{label}</div>
-          <div style="font-size:0.65rem;color:#6b7280">{sublabel}</div>
+    def step_html(state, n, label, sublabel):
+        icone = "✓" if state == "done" else str(n)
+        return f"""<div class="step step-{state}">
+          <div class="step-dot">{icone}</div>
+          <div><div class="step-label">{label}</div><div class="step-sub">{sublabel}</div></div>
         </div>"""
 
-    arrow = '<div style="color:#d1d5de;font-size:0.9rem;padding:0 4px">→</div>'
+    arrow = '<div class="step-arrow" aria-hidden="true">→</div>'
 
     st.markdown(f"""
-    <div style="display:flex;align-items:center;gap:6px;padding:1rem 1.25rem;
-                background:#f4f6f9;border:1px solid #e5e7eb;border-radius:8px;
-                margin-bottom:1.5rem;flex-wrap:wrap;gap:8px">
-      <div style="display:flex;align-items:center;gap:8px">
-        {step_dot(step1,1)}
-        {step_label("API Key","Provedor + chave",step1)}
-      </div>
+    <div class="stepper" style="margin-top:1.5rem">
+      {step_html(step1, 1, "Chave da IA", "Barra lateral")}
       {arrow}
-      <div style="display:flex;align-items:center;gap:8px">
-        {step_dot(step2,2)}
-        {step_label("Modelo IFC","Arquivo .ifc obrigatório",step2)}
-      </div>
+      {step_html(step2, 2, "Modelo IFC", "Arquivo .ifc")}
       {arrow}
-      <div style="display:flex;align-items:center;gap:8px">
-        {step_dot(step3,3)}
-        {step_label("Executar","Iniciar auditoria",step3)}
-      </div>
+      {step_html(step3, 3, "Executar", "Iniciar auditoria")}
     </div>
     """, unsafe_allow_html=True)
 
@@ -277,13 +213,13 @@ with tab_upload:
           Complete os passos <strong>① e ②</strong> na barra lateral e acima para habilitar a auditoria.
         </div>""", unsafe_allow_html=True)
     elif not api_key:
-        st.markdown('<div class="warn-box">⚠️ Passo ① — Insira sua chave API na barra lateral.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="warn-box">Passo 1 — Insira sua chave de API na barra lateral.</div>', unsafe_allow_html=True)
     elif not ifc_file:
-        st.markdown('<div class="warn-box">⚠️ Passo ② — Carregue um arquivo IFC acima.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="warn-box">Passo 2 — Carregue um arquivo IFC acima.</div>', unsafe_allow_html=True)
 
     col_btn, col_info = st.columns([1, 3])
     with col_btn:
-        run = st.button("▶ Executar Auditoria", disabled=not can_run, use_container_width=True)
+        run = st.button("Executar auditoria  →", disabled=not can_run, use_container_width=True)
 
     # ── Execution ──────────────────────────────────────────────────────────────
     if run and can_run:
@@ -423,13 +359,10 @@ with tab_upload:
 with tab_resultado:
     if st.session_state.resultado is None:
         st.markdown("""
-        <div style="text-align:center;padding:4rem 2rem;color:#334155">
-          <div style="font-size:3rem;margin-bottom:1rem">📊</div>
-          <div style="font-family:'Syne',sans-serif;font-size:1.1rem;color:#475569">
-            Nenhuma auditoria executada ainda.
-          </div>
-          <div style="font-size:0.82rem;color:#334155;margin-top:0.5rem">
-            Vá para a aba <strong>Arquivos & Execução</strong> e clique em <strong>Executar Auditoria</strong>.
+        <div class="empty-state">
+          <div class="es-title">Nenhuma auditoria executada ainda</div>
+          <div class="es-sub">
+            Vá para <strong>Nova auditoria</strong>, carregue um IFC e clique em <strong>Executar auditoria</strong>.
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -464,14 +397,14 @@ with tab_resultado:
         # Observações
         obs = resultado.get("observacoes_gerais", "")
         if obs:
-            st.markdown(f'<div class="info-box">💬 <strong>Análise Geral:</strong> {obs}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="info-box"><strong>Análise geral</strong><br>{obs}</div>', unsafe_allow_html=True)
 
         st.markdown("---")
 
         # GlobalId explanation
         st.markdown("""
         <div class="info-box">
-          <strong>🔑 Sobre o GlobalId</strong><br>
+          <strong>Sobre o GlobalId</strong><br>
           O relatório inclui o <code>GlobalId</code> de cada elemento IFC verificado — é o identificador único do elemento no modelo, como um "CPF" do componente BIM.<br>
           <strong>Como usar no Revit:</strong> aba <em>Manage → Inquiry → IFC GUID</em> para localizar o elemento diretamente.
           No <strong>BIMcollab Zoom</strong>, <strong>Solibri</strong> ou <strong>usBIM viewer</strong> (gratuitos), cole o GlobalId no campo de busca para selecionar o elemento instantaneamente.
@@ -502,8 +435,8 @@ with tab_resultado:
 
         st.markdown(f"""
         <div class="section-title">
-          📋 Itens Verificados
-          <span style="font-weight:400;color:#475569;font-size:0.75rem">— {len(itens_filtrados)} de {len(itens)} itens</span>
+          Itens verificados
+          <span class="section-sub">{len(itens_filtrados)} de {len(itens)} itens</span>
         </div>
         """, unsafe_allow_html=True)
 
@@ -512,17 +445,20 @@ with tab_resultado:
         for it in itens_filtrados:
             gid = it.get("globalid", "—")
             gid_chip = f'<span class="globalid" title="GlobalId para filtro no Revit">{gid}</span>' if gid != "—" else "—"
+            precisa_acao = classificar_status(it.get('status', '')) in ('Não Conforme', 'Parcial', 'Indeterminado')
+            rec_html = (f'<span class="td-rec">{it.get("recomendacao", "—")}</span>'
+                        if precisa_acao else '<span class="td-muted">—</span>')
             rows_html += f"""
             <tr>
-              <td style="font-family:var(--mono);color:#94a3b8;white-space:nowrap">{it.get('item_nbr','—')}</td>
-              <td style="color:#cbd5e1">{it.get('categoria','—')}</td>
-              <td style="color:#e2e8f0">{it.get('elemento','—')}</td>
+              <td class="td-item">{it.get('item_nbr','—')}</td>
+              <td class="td-muted">{it.get('categoria','—')}</td>
+              <td class="td-strong">{it.get('elemento','—')}</td>
               <td>{status_badge(it.get('status','N/A'))}</td>
-              <td style="font-family:var(--mono);font-size:0.78rem;color:#94a3b8">{it.get('valor_encontrado','—')}</td>
-              <td style="font-family:var(--mono);font-size:0.78rem;color:#94a3b8">{it.get('valor_exigido','—')}</td>
+              <td class="td-mono">{it.get('valor_encontrado','—')}</td>
+              <td class="td-mono">{it.get('valor_exigido','—')}</td>
               <td>{gid_chip}</td>
-              <td style="font-family:var(--mono);font-size:0.72rem;color:#475569">{it.get('tipo_ifc','—')}</td>
-              <td style="font-size:0.8rem;color:#f87171">{it.get('recomendacao','—') if classificar_status(it.get('status','')) in ('Não Conforme','Parcial','Indeterminado') else '<span style="color:#64748b">—</span>'}</td>
+              <td class="td-mono td-muted">{it.get('tipo_ifc','—')}</td>
+              <td>{rec_html}</td>
             </tr>"""
 
         st.markdown(f"""
@@ -531,8 +467,8 @@ with tab_resultado:
           <thead>
             <tr>
               <th>Item NBR</th><th>Categoria</th><th>Elemento</th><th>Status</th>
-              <th>Valor Encontrado</th><th>Valor Exigido</th>
-              <th>GlobalId 🔍</th><th>Tipo IFC</th><th>Recomendação</th>
+              <th>Encontrado</th><th>Exigido</th>
+              <th>GlobalId</th><th>Tipo IFC</th><th>Recomendação</th>
             </tr>
           </thead>
           <tbody>{rows_html}</tbody>
@@ -541,7 +477,7 @@ with tab_resultado:
         """, unsafe_allow_html=True)
 
         st.markdown("---")
-        st.markdown('<div class="section-title">⬇️ Exportar Relatório</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Exportar relatório</div>', unsafe_allow_html=True)
 
         col_dl1, col_dl2, col_dl3 = st.columns(3)
         modelo_nome = st.session_state.ifc_nome or "modelo"
@@ -550,7 +486,7 @@ with tab_resultado:
         with col_dl1:
             html_bytes = gerar_relatorio_html(resultado, modelo_nome).encode("utf-8")
             st.download_button(
-                "📄 Baixar Relatório HTML",
+                "Relatório HTML",
                 data=html_bytes,
                 file_name=f"relatorio_nbr9050_{ts}.html",
                 mime="text/html",
@@ -561,7 +497,7 @@ with tab_resultado:
             xlsx_bytes = gerar_excel(resultado, modelo_nome)
             if xlsx_bytes:
                 st.download_button(
-                    "📊 Baixar Checklist XLSX",
+                    "Checklist XLSX",
                     data=xlsx_bytes,
                     file_name=f"checklist_nbr9050_{ts}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -571,7 +507,7 @@ with tab_resultado:
         with col_dl3:
             json_bytes = json.dumps(resultado, ensure_ascii=False, indent=2).encode("utf-8")
             st.download_button(
-                "🗂 Baixar JSON Completo",
+                "JSON completo",
                 data=json_bytes,
                 file_name=f"auditoria_nbr9050_{ts}.json",
                 mime="application/json",
@@ -579,7 +515,7 @@ with tab_resultado:
             )
 
         # JSON expandable
-        with st.expander("🔍 Ver JSON bruto da auditoria"):
+        with st.expander("Ver JSON bruto da auditoria"):
             st.json(resultado)
 
 
@@ -602,7 +538,7 @@ with tab_elementos:
 # ─────────────────────────────────────────────
 with tab_ajuda:
     st.markdown("""
-    <div class="section-title">📖 Como usar o Auditor NBR 9050</div>
+    <div class="section-title">Como usar o access Ai</div>
     """, unsafe_allow_html=True)
 
     col_a, col_b = st.columns(2)
@@ -612,7 +548,7 @@ with tab_ajuda:
         - Escolha o provedor: **Anthropic** (Claude) ou **Google** (Gemini)
         - Cole sua chave API
         - Selecione o modelo desejado
-        - Ajuste a temperature (0.0–0.2 recomendado para auditoria)
+        - A temperatura é fixa em 0.0 (resposta determinística para auditoria)
 
         **2. Carregue o arquivo**
         - **IFC** (obrigatório): arquivo exportado do Revit, ArchiCAD etc.
@@ -647,7 +583,7 @@ with tab_ajuda:
 
     st.markdown("---")
     st.markdown("""
-    <div class="section-title">♿ Itens NBR 9050:2020 verificados (padrão)</div>
+    <div class="section-title">Itens da NBR 9050:2020 verificados</div>
     """, unsafe_allow_html=True)
 
     # Lê os mesmos 12 itens que o motor de auditoria usa — nbr9050_rules.json
@@ -658,17 +594,17 @@ with tab_ajuda:
         for r in obter_regras_lista()
     ]
 
-    cat_colors = {"Geométrica": "rgb(28,96,241)", "Condicional": "#e8920a", "Relacional": "#1ab87a", "Qualitativa": "rgb(77,83,99)"}
+    cat_colors = {"Geométrica": "#2563EB", "Condicional": "#B45309", "Relacional": "#047857", "Qualitativa": "#475569"}
     rows_help = ""
     for item_nbr, classificacao, cat, desc, entidade in itens_padrao:
-        color = cat_colors.get(classificacao, "#6b7280")
+        color = cat_colors.get(classificacao, "#64748B")
         rows_help += f"""
         <tr>
-          <td style="font-family:'Courier New',monospace;color:rgb(28,96,241);font-weight:600">{item_nbr}</td>
+          <td class="td-item">{item_nbr}</td>
           <td><span style="color:{color};font-size:0.78rem;font-weight:600">{classificacao}</span></td>
-          <td style="color:#1a1d26">{cat}</td>
-          <td style="color:#3d4252">{desc}</td>
-          <td style="font-family:'Courier New',monospace;font-size:0.72rem;color:#6b7280">{entidade}</td>
+          <td class="td-strong">{cat}</td>
+          <td>{desc}</td>
+          <td class="td-mono td-muted">{entidade}</td>
         </tr>"""
 
     st.markdown(f"""
@@ -682,7 +618,7 @@ with tab_ajuda:
 
     st.markdown("""
     <div class="warn-box" style="margin-top:1.5rem">
-    ⚠️ <strong>Limitações conhecidas:</strong>
+    <strong>Limitações conhecidas</strong><br>
     Itens qualitativos (maçaneta alavanca, lavatório suspenso) dependem de atributos textuais raramente preenchidos no IFC.
     Itens como espaço de giro (IfcSpace) ficam Indeterminados se o modelo não exportar espaços.
     Verificação manual complementar é sempre recomendada.
