@@ -16,11 +16,10 @@ import streamlit as st
 # Pior status "vence" quando o mesmo elemento aparece em mais de um item
 # (ex: uma porta avaliada em 6.11.2 e em 4.6.6).
 PRIORIDADE = {"Não Conforme": 4, "Indeterminado": 3, "Parcial": 2, "Conforme": 1, "N/A": 0}
-CORES = {
-    "Não Conforme": "#e03c3c", "Indeterminado": "#e8920a",
-    "Conforme": "#1ab87a", "N/A": "#9ca3af", "Parcial": "#7c3ac4",
-}
-COR_DESTAQUE = "#1c60f1"
+from ui_style import CORES_STATUS, PALETA, FONTE_UI
+
+CORES = CORES_STATUS                 # fonte única: ui_style.py
+COR_DESTAQUE = PALETA["azul"]        # azul da marca = "selecionado" (não é cor de status)
 CLASSES_CONTEXTO = ["IfcSlab", "IfcWall", "IfcWallStandardCase"]
 MAX_CONTEXTO = 800      # limite de elementos de contexto (modelos grandes)
 MAX_AUDITADOS = 600     # limite de elementos auditados desenhados
@@ -146,7 +145,7 @@ def _figura(malhas, gid_destaque=None, status_visiveis=None, mostrar_contexto=Tr
         destaque = a["global_id"] == gid_destaque
         v = a["verts"] - origem
         f = a["faces"]
-        cor = COR_DESTAQUE if destaque else CORES.get(a["status"], "#9ca3af")
+        cor = COR_DESTAQUE if destaque else CORES.get(a["status"], CORES_STATUS["N/A"])
         eh_espaco = a.get("ifc_class") == "IfcSpace"
         grupo = "Selecionado" if destaque else (f"{a['status']} (ambiente)" if eh_espaco else a["status"])
         if destaque:
@@ -167,7 +166,7 @@ def _figura(malhas, gid_destaque=None, status_visiveis=None, mostrar_contexto=Tr
 
     fig.update_layout(
         height=620, margin=dict(l=0, r=0, t=10, b=0),
-        paper_bgcolor="rgba(0,0,0,0)", font=dict(family="Trebuchet MS"),
+        paper_bgcolor="rgba(0,0,0,0)", font=dict(family=FONTE_UI),
         legend=dict(orientation="h", y=1.02, x=0),
         scene=dict(aspectmode="data",
                    xaxis=dict(visible=False), yaxis=dict(visible=False), zaxis=dict(visible=False),
@@ -216,7 +215,7 @@ def render_aba_3d(malhas: dict | None, linhas: list[dict] | None) -> None:
 
     if gid and linhas:
         det = pd.DataFrame([l for l in linhas if l["global_id"] == gid])
-        st.markdown('<div class="section-title">📌 Verificações do elemento selecionado</div>',
+        st.markdown('<div class="section-title">Verificações do elemento selecionado</div>',
                     unsafe_allow_html=True)
         st.dataframe(det[["item_nbr", "status", "valor_medido", "valor_exigido", "confianca",
                           "mensagem"]], hide_index=True, use_container_width=True)
