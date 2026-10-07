@@ -89,30 +89,35 @@ with st.sidebar:
             "claude-haiku-4-5-20251001",
             "claude-sonnet-5-5",
             "claude-opus-5-5",
-            "claude-sonnet-4-5",
         ]
         model_labels = {
             "claude-haiku-4-5-20251001": "Claude Haiku 4.5 (rápido, econômico)",
             "claude-sonnet-5-5":         "Claude Sonnet 5.5 (balanceado)",
             "claude-opus-5-5":           "Claude Opus 5.5 (máxima qualidade)",
-            "claude-sonnet-4-5":         "Claude Sonnet 4.5 (usado no benchmark)",
         }
     else:
-        model_options = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
+        model_options = [
+            "gemini-3.5-flash-lite",
+            "gemini-3.8-flash",
+            "gemini-3.1-pro-preview",
+        ]
         model_labels = {
-            "gemini-1.5-flash": "Gemini 1.5 Flash (rápido)",
-            "gemini-1.5-pro": "Gemini 1.5 Pro (balanceado)",
-            "gemini-2.0-flash": "Gemini 2.0 Flash (novo)",
+            "gemini-3.5-flash-lite":  "Gemini 3.5 Flash-Lite (rápido, econômico)",
+            "gemini-3.8-flash":       "Gemini 3.8 Flash (balanceado)",
+            "gemini-3.1-pro-preview": "Gemini 3.1 Pro (máxima qualidade · preview, pago)",
         }
 
     selected_model = st.selectbox(
         "Modelo LLM",
         model_options,
-        index=1,  # padrão: Sonnet 5.5 (Anthropic) / Gemini 1.5 Pro
+        index=1,  # padrão: Sonnet 5.5 (Anthropic) / Gemini 3.8 Flash
         format_func=lambda x: model_labels.get(x, x),
     )
 
-    temperature = 0.0  # Fixo em 0.0 — determinístico para auditoria normativa
+    # Temperatura 0 só é enviada aos modelos que ainda aceitam o parâmetro
+    # (Claude Haiku 4.5). Sonnet/Opus 5.5 recusam e o Gemini 3 recomenda o
+    # padrão — ver llm_auditor.py. A reprodutibilidade vem da camada Python.
+    temperature = 0.0
 
     st.markdown("---")
     st.markdown("""
@@ -353,7 +358,7 @@ with tab_upload:
 
         except json.JSONDecodeError as e:
             log(f"❌ Erro ao parsear resposta JSON do modelo: {e}")
-            st.error("O modelo não retornou JSON válido. Tente novamente ou ajuste o modelo/temperatura.")
+            st.error("O modelo não retornou JSON válido. Tente novamente ou escolha outro modelo.")
         except Exception as e:
             log(f"❌ Erro: {e}")
             st.error(f"Erro durante a execução: {e}")
@@ -557,7 +562,7 @@ with tab_ajuda:
         - Escolha o provedor: **Anthropic** (Claude) ou **Google** (Gemini)
         - Cole sua chave API
         - Selecione o modelo desejado
-        - A temperatura é fixa em 0.0 (resposta determinística para auditoria)
+        - Os itens medidos são decididos pelo cálculo em Python, que dá sempre o mesmo resultado; a IA interpreta a norma e redige o laudo
 
         **2. Carregue o arquivo**
         - **IFC** (obrigatório): arquivo exportado do Revit, ArchiCAD etc.
