@@ -86,14 +86,16 @@ with st.sidebar:
 
     if "Anthropic" in provider:
         model_options = [
-            "claude-haiku-4-5",
+            "claude-haiku-4-5-20251001",
+            "claude-sonnet-5-5",
+            "claude-opus-5-5",
             "claude-sonnet-4-5",
-            "claude-opus-4-5",
         ]
         model_labels = {
-            "claude-haiku-4-5":  "Claude Haiku 4.5 (rápido, econômico)",
-            "claude-sonnet-4-5": "Claude Sonnet 4.5 (balanceado)",
-            "claude-opus-4-5":   "Claude Opus 4.5 (máxima qualidade)",
+            "claude-haiku-4-5-20251001": "Claude Haiku 4.5 (rápido, econômico)",
+            "claude-sonnet-5-5":         "Claude Sonnet 5.5 (balanceado)",
+            "claude-opus-5-5":           "Claude Opus 5.5 (máxima qualidade)",
+            "claude-sonnet-4-5":         "Claude Sonnet 4.5 (usado no benchmark)",
         }
     else:
         model_options = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
@@ -106,6 +108,7 @@ with st.sidebar:
     selected_model = st.selectbox(
         "Modelo LLM",
         model_options,
+        index=1,  # padrão: Sonnet 5.5 (Anthropic) / Gemini 1.5 Pro
         format_func=lambda x: model_labels.get(x, x),
     )
 
