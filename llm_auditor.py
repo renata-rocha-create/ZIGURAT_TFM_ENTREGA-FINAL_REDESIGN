@@ -485,30 +485,70 @@ def _parse_json_robusto(raw: str) -> dict:
     raise json.JSONDecodeError("Não foi possível parsear a resposta do modelo.", raw_clean, 0)
 
 
-def call_anthropic(api_key: str, model: str, prompt: str, temperature: float) -> dict:
-    """Call Anthropic API and return parsed JSON result."""
+# Limite de saída. Nos modelos com raciocínio (Claude Sonnet/Opus 5.5, Gemini 3)
+# o limite cobre raciocínio + resposta, por isso é maior que os 8192 antigos.
+# Abaixo de ~21 mil tokens o SDK da Anthropic aceita chamada sem streaming.
+MAX_TOKENS_SAIDA = 16000
+
+
+def _anthropic_aceita_temperature(model: str) -> bool:
+    """
+    Só Claude Haiku 4.5 e a geração Sonnet 4.x ainda aceitam `temperature`.
+    Sonnet 5.5, Opus 4.7+ (incl. Opus 5.5) e Fable recusam qualquer valor
+    diferente do padrão com erro 400 ("temperature is deprecated for this model").
+    """
+    return model.startswith(("claude-haiku-4", "claude-sonnet-4"))
+
+
+def call_anthropic(api_key: str, model: str, prompt: str, temperature: float | None = 0.0) -> dict:
+    """Chama a API da Anthropic e devolve o JSON da auditoria."""
     import anthropic
     client = anthropic.Anthropic(api_key=api_key)
-    msg = client.messages.create(
+
+    kwargs = dict(
         model=model,
-        max_tokens=8192,
+        max_tokens=MAX_TOKENS_SAIDA,
         messages=[{"role": "user", "content": prompt}],
-        # SDK anthropic >= 1.0 removeu o argumento `temperature` do create().
-        # Via extra_body o valor vai direto no corpo da requisição HTTP e
-        # funciona tanto no SDK 0.x quanto no 1.x.
-        extra_body={"temperature": temperature},
     )
-    raw = msg.content[0].text
+    if temperature is not None and _anthropic_aceita_temperature(model):
+        # SDK anthropic >= 1.0 removeu o argumento `temperature` do create().
+        # Via extra_body o valor vai direto no corpo da requisição HTTP.
+        kwargs["extra_body"] = {"temperature": temperature}
+
+    msg = client.messages.create(**kwargs)
+
+    # Nos modelos 5.5 a resposta pode começar com um bloco de raciocínio
+    # ("thinking"); o JSON vem nos blocos de texto.
+    raw = "".join(b.text for b in msg.content if getattr(b, "type", None) == "text")
+    if not raw.strip():
+        raise RuntimeError(
+            f"O modelo {model} não devolveu texto (stop_reason={msg.stop_reason}). "
+            "Tente novamente ou escolha outro modelo."
+        )
     return _parse_json_robusto(raw)
 
 
-def call_gemini(api_key: str, model: str, prompt: str, temperature: float) -> dict:
-    """Call Google Gemini API and return parsed JSON result."""
-    import google.generativeai as genai
-    genai.configure(api_key=api_key)
-    m = genai.GenerativeModel(model)
-    resp = m.generate_content(
-        prompt,
-        generation_config={"temperature": temperature, "max_output_tokens": 8192}
+def call_gemini(api_key: str, model: str, prompt: str, temperature: float | None = None) -> dict:
+    """
+    Chama a API do Gemini (SDK google-genai) e devolve o JSON da auditoria.
+
+    `temperature` é ignorado: o Google recomenda manter o padrão 1.0 nos
+    modelos Gemini 3 — valores menores podem causar repetição ou piora.
+    A reprodutibilidade da auditoria vem das verificações em Python.
+    """
+    from google import genai
+    client = genai.Client(api_key=api_key)
+    resp = client.models.generate_content(
+        model=model,
+        contents=prompt,
+        config={
+            "max_output_tokens": MAX_TOKENS_SAIDA,
+            "response_mime_type": "application/json",
+        },
     )
-    return _parse_json_robusto(resp.text)
+    raw = resp.text or ""
+    if not raw.strip():
+        raise RuntimeError(
+            f"O modelo {model} não devolveu texto. Tente novamente ou escolha outro modelo."
+        )
+    return _parse_json_robusto(raw)
