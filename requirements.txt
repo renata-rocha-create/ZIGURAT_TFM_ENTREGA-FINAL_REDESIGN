@@ -13,5 +13,5 @@ pandas>=2.0.0              # tabelas por elemento, dashboard, CSV
 openpyxl>=3.1.0            # checklist .xlsx
 
 # ── LLMs ─────────────────────────────────────────────────────────────────────
-anthropic>=0.40.0          # Claude (temperature via extra_body: funciona no SDK 0.x e 1.x)
-google-generativeai        # Gemini
+anthropic>=0.40.0          # Claude (Haiku 4.5, Sonnet 5.5, Opus 5.5)
+google-genai>=1.0.0        # Gemini 3 (SDK novo; google-generativeai foi descontinuado em nov/2025)
